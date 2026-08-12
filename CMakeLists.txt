@@ -10,7 +10,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_library(chess_engine_lib
-	src/chess_engine.cpp
+	src/board.cpp
+	src/loader.cpp
+	src/display.cpp
 )
 
 target_include_directories(chess_engine_lib
