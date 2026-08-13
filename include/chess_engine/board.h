@@ -1,16 +1,12 @@
 #pragma once
 
-#include <array>
+#include "chess_engine/display.h"
+#include "chess_engine/move_executor.h"
+#include "chess_engine/move_generator.h"
+
 #include <string>
-#include <cstdint>
 
 namespace chess {
-	
-static constexpr uint8_t WHITE_ACTIVE    = 1 << 0;
-static constexpr uint8_t WHITE_KINGSIDE  = 1 << 1;
-static constexpr uint8_t WHITE_QUEENSIDE = 1 << 2;
-static constexpr uint8_t BLACK_KINGSIDE  = 1 << 3;
-static constexpr uint8_t BLACK_QUEENSIDE = 1 << 4;
 
 class BoardState {
 public:
@@ -46,19 +42,19 @@ public:
 		board[63] = 'r';
 	}
 
-	bool move(uint8_t start, uint8_t end, char promotion='\0');
+	void move(uint8_t start, uint8_t end, std::optional<char> promotion=std::nullopt);
+	
+	std::vector<std::pair<uint8_t, std::optional<char>>>
+	generate(uint8_t start) const;
 	
 	std::string display() const;
 	
 private:
 	std::array<char,64> board;
-	uint16_t halfmove_clock;
-	uint16_t fullmove_clock;
-	uint8_t en_passant_square;
-	uint8_t active_and_castling;
-	
-	bool check(uint8_t bit) const;
-	void set(uint8_t bit, bool is_true=false);
+	uint16_t halfmove_clock = 0;
+	uint16_t fullmove_clock = 1;
+	uint8_t en_passant_square = 0;
+	uint8_t active_and_castling = 31;
 	// maybe an in check tag?
 	// or pehaps a function checks if in check?
 	// if in check must move to a board state that is NOT in check

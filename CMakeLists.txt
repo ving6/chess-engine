@@ -13,6 +13,9 @@ add_library(chess_engine_lib
 	src/board.cpp
 	src/loader.cpp
 	src/display.cpp
+	src/bit_packer.cpp
+	src/move_executor.cpp
+	src/move_generator.cpp
 )
 
 target_include_directories(chess_engine_lib

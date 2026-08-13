@@ -13,12 +13,32 @@ int main() {
 		std::cout << "start position: ";
 		std::cin >> start;
 		
+		std::cout << "possible moves: ";
+		auto moves = board_state.generate(start);
 		
-		std::cout << "end position: ";
+		bool promoting = false;
+		for (const auto& [move, promotion] : moves) {
+			std::cout << +move;
+			if (promotion) {
+				std::cout << ":" << *promotion;
+				promoting = true;
+			}
+			std::cout << ", ";
+		}
+		
+		
+		std::cout << "\nend position: ";
 		std::cin >> end;
 		
-		
-		board_state.move(start, end);
+		char promotion;
+		if (promoting) {
+			std::cout << "promotion: ";
+			std::cin >> promotion;
+			board_state.move(start, end, promotion);
+			
+		} else {
+			board_state.move(start, end);
+		}
 		
 		std::cout << board_state.display() << std::endl;
 	}

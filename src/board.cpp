@@ -1,91 +1,19 @@
 #include "chess_engine/board.h"
-#include "chess_engine/display.h"
 
 namespace chess {
 	
-bool BoardState::move(uint8_t start, uint8_t end, char promotion) {
-	char piece = board[start];
-	
-	// incrments clocks depending on if a pawn move or take occured
-	fullmove_clock++;
-	if (piece == 'p' || piece == 'P' || board[end] != '.') {
-		halfmove_clock = 0;
-	} else {
-		halfmove_clock++;
-	}
-	
-	// set en passant square, checking if a pawn moves two spaces
-	if ((piece == 'p' || piece == 'P') && (start - end == 16 || end - start == 16)) {
-		en_passant_square = (start + end) / 2;
-	} else {
-		en_passant_square = 0;
-	}
-	
-	// update castling and active status
-	if (check(WHITE_ACTIVE)) {
-		if (start == 4) {
-			set(WHITE_KINGSIDE);
-			set(WHITE_QUEENSIDE);
-		}
-		
-		if (start == 0) set(WHITE_QUEENSIDE);
-		if (start == 7) set(WHITE_KINGSIDE);
-		
-		if (end == 56) set(BLACK_QUEENSIDE);
-		if (end == 63) set(BLACK_KINGSIDE);
-		
-		set(WHITE_ACTIVE, false);
-		
-	} else {
-		if (start == 60) {
-			set(BLACK_KINGSIDE);
-			set(BLACK_QUEENSIDE);
-		}
-		
-		if (start == 56) set(BLACK_QUEENSIDE);
-		if (start == 63) set(BLACK_KINGSIDE);
-		
-		if (end == 0) set(WHITE_QUEENSIDE);
-		if (end == 7) set(WHITE_KINGSIDE);
-		
-		set(WHITE_ACTIVE, true);
-	}
-	
-	// set start to empty
-	board[start] = '.';
-	
-	// fill end with piece or promoted piece
-	/*if (promotion) board[end] = promotion;
-	else*/ 
-		
-	board[end] = piece;
-	
-	return true;
+void BoardState::move(uint8_t start, uint8_t end, std::optional<char> promotion) {
+	move_piece(start, end, board, halfmove_clock, fullmove_clock, en_passant_square, active_and_castling, promotion);
 }
 
 std::string BoardState::display() const {
 	return display_board(board);
 }
 
-// wait so we genrate possible moves for each piece
-// itearter though entire board, and then do thi function
-// for each piece
-
-// ok
-// in order to do this, we need the board state as well
-// maybe board state should just be the hub for the functions
-// like maybe it should do move because that edits the internals
-// but everythign that doesnt, like checking, it will just pass in the neccesary
-// info and call on another file's functions
-// 
-
-void BoardState::set(uint8_t bit, bool is_true) {
-	active_and_castling &= ~bit;
-	if (is_true) active_and_castling |= bit;
-}
-
-bool BoardState::check(uint8_t bit) const {
-	return (active_and_castling & bit) != 0;
+// should generate vborads not uints, but for now do this
+std::vector<std::pair<uint8_t, std::optional<char>>>
+BoardState::generate(uint8_t start) const {
+	return generate_moves(start, board, en_passant_square, active_and_castling);
 }
 	
 	// maybe an in check tag?
