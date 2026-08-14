@@ -26,8 +26,8 @@ BoardState::generate(uint8_t start) const {
 		BoardState board_copy = *this;
 		
 		if (board[start] == 'K' || board[start] == 'k') {
-			if (in_check(start, isWhite)) continue;
 			if ((int)start - end == 2 || (int)end - start == 2) {
+				if (in_check(start, isWhite)) continue;
 				if (in_check((start+end)/2, isWhite)) continue;
 				if (in_check(end, isWhite)) continue;
 			}	
@@ -61,8 +61,8 @@ BoardState::generate_boards() const {
 			BoardState board_copy = *this;
 			
 			if (board[start] == 'K' || board[start] == 'k') {
-				if (in_check(start, isWhite)) continue;
 				if ((int)start - end == 2 || (int)end - start == 2) {
+					if (in_check(start, isWhite)) continue;
 					if (in_check((start+end)/2, isWhite)) continue;
 					if (in_check(end, isWhite)) continue;
 				}	
@@ -71,12 +71,12 @@ BoardState::generate_boards() const {
 			board_copy.move(start,end,promotion);
 			
 			if (isWhite) {
-				if (!board_copy.in_check(white_king_square, isWhite)) {
+				if (!board_copy.in_check(board_copy.white_king_square, isWhite)) {
 					possible_boards.push_back(board_copy);
 					std::cout << board[start] << ":" << +start << " -> " << +end << std::endl;
 				}
 			} else {
-				if (!board_copy.in_check(black_king_square, isWhite)) {
+				if (!board_copy.in_check(board_copy.black_king_square, isWhite)) {
 					possible_boards.push_back(board_copy);
 					std::cout << board[start] << ":" << +start << " -> " << +end << std::endl;
 				}
@@ -177,10 +177,55 @@ bool BoardState::in_check(uint8_t space, bool isWhite) const {
 		}
 	}}
 	
+	// detect pawn sightlines
+	if (isWhite) {
+		if (space/8 < 7) {
+			if (space%8 > 0 && board[space+7] == 'p') {
+				return true;
+			}
+			
+			if (space%8 < 7 && board[space+9] == 'p') {
+				return true;
+			}
+		}
+		
+	} else {
+		if (space/8 > 0) {
+			if (space%8 > 0 && board[space-9] == 'P') {
+				return true;
+			}
+			
+			if (space%8 < 7 && board[space-7] == 'P') {
+				return true;
+			}
+		}
+	}
+	
+	// detect king sightline
+	{std::array<int,3> dirs{-1,0,1};
+	for (const auto& x_dir : dirs) {
+		for (const auto& y_dir : dirs) {
+			// if will be OOB -> continue
+			if (x_dir == 0 && y_dir == 0) continue;
+			if (x_dir == -1 && space%8 == 0) continue;
+			if (x_dir == 1 && space%8 == 7) continue;
+			if (y_dir == -1 && space/8 == 0) continue;
+			if (y_dir == 1 && space/8 == 7) continue;
+			
+			uint8_t target = space + x_dir + 8*y_dir;
+			if (isWhite) {
+				if (board[target] == 'K') {
+					return true;
+				}
+			} else {
+				if (board[target] == 'k') {
+					return true;
+				}
+			}
+		}
+	}}
+	
 	return false;
-	
-	
-	
 }
 
 // so checkmate if the no possible moves AND
