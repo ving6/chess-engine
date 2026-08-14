@@ -3,8 +3,27 @@
 #include <cctype>
 
 namespace chess {
+	
+std::vector<std::pair<uint8_t, std::vector<std::pair<uint8_t, char>>>>
+generate_all(bool white_active, const std::array<char,64>& board, 
+				const uint8_t en_passant_square, const uint8_t active_and_castling) {
+	// in form: {{start1, {end1, end2, ...}}, {start2, {end1, end2, ...}}, ...
+	std::vector<std::pair<uint8_t, std::vector<std::pair<uint8_t, char>>>> all_moves;
+	
+	for (uint8_t start=0; start<64; start++) {
+		if (board[start] == '.') continue;
+		if (white_active != isupper(board[start])) continue;
+		
+		auto curr_moves = generate_moves(start, board, en_passant_square, active_and_castling);
+		if (!curr_moves.empty()) {
+			all_moves.push_back({start, curr_moves});
+		}
+	}
+	
+	return all_moves;
+}
 
-std::vector<std::pair<uint8_t, std::optional<char>>> 
+std::vector<std::pair<uint8_t, char>> 
 generate_moves(const uint8_t start, const std::array<char,64>& board, 
 									const uint8_t en_passant_square, const uint8_t active_and_castling) {
 	
@@ -19,7 +38,7 @@ generate_moves(const uint8_t start, const std::array<char,64>& board,
 		return (empty(target) || (isWhite != std::isupper(board[target])));
 	};
 	
-	std::vector<std::pair<uint8_t, std::optional<char>>> moves;
+	std::vector<std::pair<uint8_t, char>> moves;
 	
 	
 	// ALWAYS ASSUME VALID BOARD STATE AT START
@@ -30,13 +49,12 @@ generate_moves(const uint8_t start, const std::array<char,64>& board,
 	if (piece == 'P') {
 		int mult = isWhite ? 1 : -1;
 		
-		for (const std::optional<char>& c : std::array<std::optional<char>,5>{std::nullopt,'Q','R','N','B'}) {
-			std::optional<char> promotion = c;
-			if ((isWhite && start/8 == 6) || (!isWhite && start/8==1)) {
-				if (!promotion) continue;
-				if (!isWhite) promotion = tolower(*promotion);
-			} else if (promotion) {
-				continue;
+		std::vector<char> promotions = ((isWhite && start/8 == 6) || (!isWhite && start/8==1)) ? 
+											std::vector<char>{'Q','R','N','B'} : std::vector<char>{'\0'};
+		
+		for (char& promotion : promotions) {
+			if (promotion && !isWhite) {
+				promotion = tolower(promotion);
 			}
 			
 			if (empty(start+8*mult)) {
@@ -69,42 +87,6 @@ generate_moves(const uint8_t start, const std::array<char,64>& board,
 		}
 	}
 	
-	// the really bad thing is the check situation
-	// for now we ignore
-	
-	// i think we need to just check if a board state is in check?
-	// but then what...
-	// 
-	
-	// ok have a move generatr
-	// and a move validator, which actually generates boards
-	// takes in a singular move maybe and checks if valid?
-	// ok, so big invalid if in check
-	// so actually forget about validity
-	// ok invalid if check status weird
-	// so do the move after genrating it
-	// check if that board state is in check
-	// if so, fail it
-	// a board itself should be able to generate all possible moves
-	// EVEN invalid ones
-	// then we should be able to copy that board and the do the move
-	// to get possible board states
-	// we then check if any of those boards are in check
-	// if so, fail those boards
-	
-	// ***************************************************************
-	// so architecture
-	// BoardState just stores a single board
-	// but this board should be able to pass itself to lower files by reference
-	// in order to do stuff:
-	
-	// moving
-	// generating moves
-	// note: empty and takeable could be lambda functions
-	// also check and set could be lambda, why not?
-	// ***************************************************************
-	
-	
 	// BISHOP move logic
 	if (piece == 'B') {
 		std::array<int,2> dirs{-1,1};
@@ -122,10 +104,10 @@ generate_moves(const uint8_t start, const std::array<char,64>& board,
 					curr += x_dir + 8*y_dir;
 					
 					if (empty(curr)) {
-						moves.push_back({curr,std::nullopt});
+						moves.push_back({curr,'\0'});
 					} else {
 						if (takeable(curr)) {
-							moves.push_back({curr,std::nullopt});
+							moves.push_back({curr,'\0'});
 						}
 						break;
 					}
@@ -156,7 +138,7 @@ generate_moves(const uint8_t start, const std::array<char,64>& board,
 				
 				uint8_t target = start + x_dir + 8*y_dir;
 				if (takeable(target)) {
-					moves.push_back({target,std::nullopt});
+					moves.push_back({target,'\0'});
 				}
 			}
 		}
@@ -181,10 +163,10 @@ generate_moves(const uint8_t start, const std::array<char,64>& board,
 					curr += x_dir + 8*y_dir;
 					
 					if (empty(curr)) {
-						moves.push_back({curr,std::nullopt});
+						moves.push_back({curr,'\0'});
 					} else {
 						if (takeable(curr)) {
-							moves.push_back({curr,std::nullopt});
+							moves.push_back({curr,'\0'});
 						}
 						break;
 					}
@@ -212,15 +194,14 @@ generate_moves(const uint8_t start, const std::array<char,64>& board,
 					curr += x_dir + 8*y_dir;
 					
 					if (empty(curr)) {
-						moves.push_back({curr,std::nullopt});
+						moves.push_back({curr,'\0'});
 					} else {
 						if (takeable(curr)) {
-							moves.push_back({curr,std::nullopt});
+							moves.push_back({curr,'\0'});
 						}
 						break;
 					}
 				}
-				
 			}
 		}
 	}
@@ -243,8 +224,8 @@ generate_moves(const uint8_t start, const std::array<char,64>& board,
 			if (!empty(pos)) king_side = false;
 		}
 		
-		if (queen_side) moves.push_back({2+offset,std::nullopt});
-		if (king_side) moves.push_back({6+offset,std::nullopt});
+		if (queen_side) moves.push_back({2+offset,'\0'});
+		if (king_side) moves.push_back({6+offset,'\0'});
 		
 		std::array<int,3> dirs{-1,0,1};
 		
@@ -259,7 +240,7 @@ generate_moves(const uint8_t start, const std::array<char,64>& board,
 				
 				uint8_t target = start + x_dir + 8*y_dir;
 				if (takeable(target)) {
-					moves.push_back({target,std::nullopt});
+					moves.push_back({target,'\0'});
 				}
 			}
 		}

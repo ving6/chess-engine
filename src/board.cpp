@@ -1,52 +1,205 @@
 #include "chess_engine/board.h"
 
+#include <iostream>
+
 namespace chess {
 	
-void BoardState::move(uint8_t start, uint8_t end, std::optional<char> promotion) {
-	move_piece(start, end, board, halfmove_clock, fullmove_clock, en_passant_square, active_and_castling, promotion);
+void BoardState::move(uint8_t start, uint8_t end, char promotion) {
+	move_piece(start, end, board, halfmove_clock, fullmove_clock, en_passant_square, 
+				white_king_square, black_king_square, active_and_castling, promotion);
 }
 
 std::string BoardState::display() const {
 	return display_board(board);
 }
 
-// should generate vborads not uints, but for now do this
-std::vector<std::pair<uint8_t, std::optional<char>>>
+// just generates moves for a singular piece for sake of printing
+// should remove later
+std::vector<std::pair<uint8_t, char>>
 BoardState::generate(uint8_t start) const {
-	return generate_moves(start, board, en_passant_square, active_and_castling);
+	
+	// maybe do it to a copioed board and check if in check
+	
+	bool isWhite = check(WHITE_ACTIVE,active_and_castling);
+	std::vector<std::pair<uint8_t, char>> valid_moves;
+	for (const auto& [end, promotion] : generate_moves(start, board, en_passant_square, active_and_castling)) {
+		BoardState board_copy = *this;
+		
+		if (board[start] == 'K' || board[start] == 'k') {
+			if (in_check(start, isWhite)) continue;
+			if ((int)start - end == 2 || (int)end - start == 2) {
+				if (in_check((start+end)/2, isWhite)) continue;
+				if (in_check(end, isWhite)) continue;
+			}	
+		}
+		
+		board_copy.move(start,end,promotion);
+		
+		if (isWhite) {
+			if (!board_copy.in_check(white_king_square, isWhite)) {
+				valid_moves.push_back({end,promotion});
+			}
+		} else {
+			if (!board_copy.in_check(black_king_square, isWhite)) {
+				valid_moves.push_back({end,promotion});
+			}
+		}
+	}
+	
+	return valid_moves;
 }
+
+// generates all possible board states
+std::vector<BoardState>
+BoardState::generate_boards() const {
+	bool isWhite = check(WHITE_ACTIVE,active_and_castling);
+	auto candidate_moves = generate_all(isWhite, board, en_passant_square, active_and_castling);
+	std::vector<BoardState> possible_boards;
 	
-	// maybe an in check tag?
-	// or pehaps a function checks if in check?
-	// if in check must move to a board state that is NOT in check
-	// so storing if in check is nice
-	// also cant move into check.
+	for (const auto& [start, ends] : candidate_moves) {
+		for (const auto& [end, promotion] : ends) {
+			BoardState board_copy = *this;
+			
+			if (board[start] == 'K' || board[start] == 'k') {
+				if (in_check(start, isWhite)) continue;
+				if ((int)start - end == 2 || (int)end - start == 2) {
+					if (in_check((start+end)/2, isWhite)) continue;
+					if (in_check(end, isWhite)) continue;
+				}	
+			}
+			
+			board_copy.move(start,end,promotion);
+			
+			if (isWhite) {
+				if (!board_copy.in_check(white_king_square, isWhite)) {
+					possible_boards.push_back(board_copy);
+					std::cout << board[start] << ":" << +start << " -> " << +end << std::endl;
+				}
+			} else {
+				if (!board_copy.in_check(black_king_square, isWhite)) {
+					possible_boards.push_back(board_copy);
+					std::cout << board[start] << ":" << +start << " -> " << +end << std::endl;
+				}
+			}
+		}
+	}
+	
+	return possible_boards;
+}
+
+// checks if a space is in check
+bool BoardState::in_check(uint8_t space, bool isWhite) const {
+	
+	{std::array<int,3> dirs{-1,0,1};
+	for (const auto& x_dir : dirs) {
+		for (const auto& y_dir : dirs) {
+			if (x_dir == 0 && y_dir == 0) continue;
+			
+			uint8_t curr = space;
+			while (true) {
+				// if will be OOB -> break
+				if (x_dir == -1 && curr%8 == 0) break;
+				if (x_dir == 1 && curr%8 == 7) break;
+				if (y_dir == -1 && curr/8 == 0) break;
+				if (y_dir == 1 && curr/8 == 7) break;
+				curr += x_dir + 8*y_dir;
+				
+				// if collision
+				if (board[curr] != '.') {
+					// detect rook sightline
+					if (x_dir == 0 || y_dir == 0) {
+						if (isWhite) {
+							if (board[curr] == 'r') {
+								return true;
+							}
+						} else {
+							if (board[curr] == 'R') {
+								return true;
+							}
+						}
+						
+					// detect bishop sightline	
+					} else {
+						if (isWhite) {
+							if (board[curr] == 'b') {
+								return true;
+							}
+						} else {
+							if (board[curr] == 'B') {
+								return true;
+							}
+						}
+					}
+
+					// always queen movement
+					if (isWhite) {
+						if (board[curr] == 'q') {
+							return true;
+						}
+					} else {
+						if (board[curr] == 'Q') {
+							return true;
+						}
+					}
+					break;
+				}
+			}
+		}
+	}}
+	
+	// detect knight sightlines
+	{std::array<int,4> dirs{-2,-1,1,2};	
+	for (const auto& x_dir : dirs) {
+		for (const auto& y_dir : dirs) {
+			if ((x_dir + y_dir) % 2 == 0) continue;
+			
+			// if will be OOB -> continue
+			if (x_dir == -2 && space%8 <= 1) continue;
+			if (x_dir == -1 && space%8 == 0) continue;
+			if (x_dir == 1 && space%8 == 7) continue;
+			if (x_dir == 2 && space%8 >= 6) continue;
+			
+			if (y_dir == -2 && space/8 <= 1) continue;
+			if (y_dir == -1 && space/8 == 0) continue;
+			if (y_dir == 1 && space/8 == 7) continue;
+			if (y_dir == 2 && space/8 >= 6) continue;
+			
+			uint8_t target = space + x_dir + 8*y_dir;
+			if (isWhite) {
+				if (board[target] == 'n') {
+					return true;
+				}
+			} else {
+				if (board[target] == 'N') {
+					return true;
+				}
+			}
+		}
+	}}
+	
+	return false;
 	
 	
-	// ok.
-	// so we have a board state
-	// we need to be able to analyze that board state
-	// we need to be able to generate possible board states
-	// we need to simulate two full turns and choose best path
 	
-	// so...
-	// start with just generating the possible board states?
-	// meaning all legal board states
-	// then want to check if checkmate or stalemate or draw by material
-	// but this is analysis
-	// so make subclasses to specifically accomplish those tasks
-	// call it like end conditions or something
-	
-	// ok. first make the board easily modifiable
-	// we expose releavnt data publicly, even though we should NEVER edit it
-	// we do not edit the board. we create copies and edit them
-	// so we frankly should be returning this copy with a function
-	// i guess what it comes down to, is initialziing all of this stuff?
-	// but maybe this is bad
-	// we can do a MOVE
-	// and then get the en passant square and stuff
-	// dont think about if a legal move really
-	// just if a take occurs then update the halfmove clock
-	// move has to have
+}
+
+// so checkmate if the no possible moves AND
+// in check currently
+
+// stalemate if no possible moves BUT not in check
+// also 50 move rule
+// also inadequate material
+// also threefold
+// so the simulator would handle threefold
+// think about it. we also need an analysi function
+// but this takes in a Board
+// 
+
+// if we expose in_check. no we also need tke king stuff...????
+// how to make this function well????
+
+
+
+// could just have get functions to expose themselves
 
 } // end namespace chess

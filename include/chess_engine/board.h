@@ -42,19 +42,28 @@ public:
 		board[63] = 'r';
 	}
 
-	void move(uint8_t start, uint8_t end, std::optional<char> promotion=std::nullopt);
-	
-	std::vector<std::pair<uint8_t, std::optional<char>>>
-	generate(uint8_t start) const;
+	void move(uint8_t start, uint8_t end, char promotion='\0');
 	
 	std::string display() const;
+	
+	std::vector<std::pair<uint8_t, char>>
+	generate(uint8_t start) const;
+	
+	std::vector<BoardState>
+	generate_boards() const;
 	
 private:
 	std::array<char,64> board;
 	uint16_t halfmove_clock = 0;
 	uint16_t fullmove_clock = 1;
 	uint8_t en_passant_square = 0;
+	uint8_t white_king_square = 4;
+	uint8_t black_king_square = 60;
 	uint8_t active_and_castling = 31;
+	
+	bool in_check(uint8_t space, bool isWhite) const;
+	
+	
 	// maybe an in check tag?
 	// or pehaps a function checks if in check?
 	// if in check must move to a board state that is NOT in check

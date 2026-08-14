@@ -10,17 +10,27 @@ int main() {
 	int end;
 	
 	while (true) {
+		
+		
+		std::vector<chess::BoardState> possible_boards = board_state.generate_boards();
+	
+		/*
+		for (auto& board : possible_boards) {
+			std::cout << board.display() << std::endl;
+		}*/
+		
 		std::cout << "start position: ";
 		std::cin >> start;
 		
 		std::cout << "possible moves: ";
+		
 		auto moves = board_state.generate(start);
 		
 		bool promoting = false;
 		for (const auto& [move, promotion] : moves) {
 			std::cout << +move;
 			if (promotion) {
-				std::cout << ":" << *promotion;
+				std::cout << ":" << promotion;
 				promoting = true;
 			}
 			std::cout << ", ";

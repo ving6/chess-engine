@@ -3,7 +3,8 @@
 namespace chess {
 	
 void move_piece(const uint8_t start, const uint8_t end, std::array<char,64>& board, uint16_t& halfmove_clock, 
-				uint16_t& fullmove_clock, uint8_t& en_passant_square, uint8_t& active_and_castling, const std::optional<char> promotion) {
+				uint16_t& fullmove_clock, uint8_t& en_passant_square, uint8_t& white_king_square,
+				uint8_t& black_king_square, uint8_t& active_and_castling, const char promotion) {
 	
 	char piece = board[start];
 	
@@ -62,15 +63,42 @@ void move_piece(const uint8_t start, const uint8_t end, std::array<char,64>& boa
 		set(WHITE_ACTIVE,active_and_castling,true);
 	}
 	
-	// but what if taking en pasant square?
-	// set start to empty
 	board[start] = '.';
-	
-	// fill end with piece or promoted piece
-	/*if (promotion) board[end] = promotion;
-	else*/
 
-	if (promotion) board[end] = *promotion;
+	if (promotion) board[end] = promotion;
 	else board[end] = piece;
+	
+	// move rook as well when castling
+	if (piece == 'K') {
+		white_king_square = end;
+		
+		if (start == 4) {
+			if (end == 2) {
+				board[3] = 'R';
+				board[0] = '.';
+			}
+			
+			if (end == 6) {
+				board[5] = 'R';
+				board[7] = '.';
+			}
+		}
+	}
+	
+	if (piece == 'k') {
+		black_king_square = end;
+		
+		if (start == 60) {
+			if (end == 58) {
+				board[59] = 'r';
+				board[56] = '.';
+			}
+			
+			if (end == 62) {
+				board[61] = 'r';
+				board[63] = '.';
+			}
+		}
+	}
 }
 } // end namespace chess
