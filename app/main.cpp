@@ -1,4 +1,5 @@
 #include "chess_engine/board.h"
+#include "chess_engine/analysis.h"
 
 #include <iostream>
 
@@ -6,18 +7,23 @@ int main() {
 	chess::BoardState board_state;
 	std::cout << board_state.display() << std::endl;
 	
+	
+	/*chess::BoardState test_board;
+	std::cout << test_board.display() << std::endl;*/
+	
+	chess::Analyzer analyzer;
+	
+	//std::cout << analyzer.analyze(test_board) << std::endl;
+	
 	int start;
 	int end;
 	
 	while (true) {
 		
 		
-		std::vector<chess::BoardState> possible_boards = board_state.generate_boards();
-	
-		/*
-		for (auto& board : possible_boards) {
-			std::cout << board.display() << std::endl;
-		}*/
+		//std::vector<chess::BoardState> possible_boards = board_state.generate_boards();
+		
+		std::cout << "evaluation: " << analyzer.analyze(board_state) << std::endl;
 		
 		std::cout << "start position: ";
 		std::cin >> start;

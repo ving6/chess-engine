@@ -24,3 +24,9 @@ analyzed. Next, for analysis need to consider various factors: --> from chessify
 
 To better test and consider this kind of thing, should implement our loader
 so that we can test various FEN string positions
+
+8-18-26
+
+Finished a FEN loader. Working on analysis function. Currently considers material
+and, using piece square tables, positional value. Will need to consider mobility,
+pawn structure, and king safety at least.

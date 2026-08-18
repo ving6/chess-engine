@@ -1,5 +1,6 @@
 #pragma once
 
+#include "chess_engine/loader.h"
 #include "chess_engine/display.h"
 #include "chess_engine/move_executor.h"
 #include "chess_engine/move_generator.h"
@@ -10,36 +11,9 @@ namespace chess {
 
 class BoardState {
 public:
-	BoardState(){
-		board[0] = 'R';
-		board[1] = 'N';
-		board[2] = 'B';
-		board[3] = 'Q';
-		board[4] = 'K';
-		board[5] = 'B';
-		board[6] = 'N';
-		board[7] = 'R';
-		
-		for (int i=8; i<16; i++) {
-			board[i] = 'P';
-		}
-		
-		for (int i=16; i<48; i++) {
-			board[i] = '.';
-		}
-		
-		for (int i=48; i<56; i++) {
-			board[i] = 'p';
-		}
-		
-		board[56] = 'r';
-		board[57] = 'n';
-		board[58] = 'b';
-		board[59] = 'q';
-		board[60] = 'k';
-		board[61] = 'b';
-		board[62] = 'n';
-		board[63] = 'r';
+	BoardState(std::string FEN="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"){
+		load(FEN, board, halfmove_clock, fullmove_clock, en_passant_square, 
+				white_king_square, black_king_square, active_and_castling);
 	}
 
 	void move(uint8_t start, uint8_t end, char promotion='\0');
@@ -52,6 +26,22 @@ public:
 	std::vector<BoardState>
 	generate_boards() const;
 	
+	inline std::array<char,64> get_board() {return board;}
+	
+	bool in_check(uint8_t space, bool isWhite) const;
+	
+	inline uint16_t get_halfmove(){return halfmove_clock;}
+	
+	inline uint16_t get_fullmove(){return fullmove_clock;}
+	
+	inline uint8_t get_en_passant(){return en_passant_square;}
+	
+	inline uint8_t get_white_king(){return white_king_square;}
+	
+	inline uint8_t get_black_king(){return black_king_square;}
+	
+	inline uint8_t get_info(){return active_and_castling;}
+	
 private:
 	std::array<char,64> board;
 	uint16_t halfmove_clock = 0;
@@ -60,8 +50,6 @@ private:
 	uint8_t white_king_square = 4;
 	uint8_t black_king_square = 60;
 	uint8_t active_and_castling = 31;
-	
-	bool in_check(uint8_t space, bool isWhite) const;
 	
 	
 	// maybe an in check tag?

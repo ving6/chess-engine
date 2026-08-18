@@ -18,8 +18,6 @@ std::string BoardState::display() const {
 std::vector<std::pair<uint8_t, char>>
 BoardState::generate(uint8_t start) const {
 	
-	// maybe do it to a copioed board and check if in check
-	
 	bool isWhite = check(WHITE_ACTIVE,active_and_castling);
 	std::vector<std::pair<uint8_t, char>> valid_moves;
 	for (const auto& [end, promotion] : generate_moves(start, board, en_passant_square, active_and_castling)) {
@@ -52,6 +50,7 @@ BoardState::generate(uint8_t start) const {
 // generates all possible board states
 std::vector<BoardState>
 BoardState::generate_boards() const {
+	
 	bool isWhite = check(WHITE_ACTIVE,active_and_castling);
 	auto candidate_moves = generate_all(isWhite, board, en_passant_square, active_and_castling);
 	std::vector<BoardState> possible_boards;
@@ -73,12 +72,10 @@ BoardState::generate_boards() const {
 			if (isWhite) {
 				if (!board_copy.in_check(board_copy.white_king_square, isWhite)) {
 					possible_boards.push_back(board_copy);
-					std::cout << board[start] << ":" << +start << " -> " << +end << std::endl;
 				}
 			} else {
 				if (!board_copy.in_check(board_copy.black_king_square, isWhite)) {
 					possible_boards.push_back(board_copy);
-					std::cout << board[start] << ":" << +start << " -> " << +end << std::endl;
 				}
 			}
 		}
@@ -214,11 +211,11 @@ bool BoardState::in_check(uint8_t space, bool isWhite) const {
 			
 			uint8_t target = space + x_dir + 8*y_dir;
 			if (isWhite) {
-				if (board[target] == 'K') {
+				if (board[target] == 'k') {
 					return true;
 				}
 			} else {
-				if (board[target] == 'k') {
+				if (board[target] == 'K') {
 					return true;
 				}
 			}
@@ -238,6 +235,15 @@ bool BoardState::in_check(uint8_t space, bool isWhite) const {
 // so the simulator would handle threefold
 // think about it. we also need an analysi function
 // but this takes in a Board
+// 
+
+// ok, we easily have all possible boards
+
+// the problem is how we actually analyze
+// and then we do alpha beta pruning...
+
+// analysis:
+
 // 
 
 // if we expose in_check. no we also need tke king stuff...????

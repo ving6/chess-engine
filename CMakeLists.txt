@@ -16,6 +16,7 @@ add_library(chess_engine_lib
 	src/bit_packer.cpp
 	src/move_executor.cpp
 	src/move_generator.cpp
+	src/analysis.cpp
 )
 
 target_include_directories(chess_engine_lib
