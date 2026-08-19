@@ -7,6 +7,19 @@ void BoardState::move(uint8_t start, uint8_t end, char promotion) {
 				white_king_square, black_king_square, active_and_castling, promotion);
 }
 
+void BoardState::unmove(uint8_t start, char start_piece, uint8_t end, char end_piece, uint16_t halfmove_clock_, uint16_t fullmove_clock_, 
+							uint8_t en_passant_square_, uint8_t white_king_square_, uint8_t black_king_square_, uint8_t active_and_castling_) {
+	board[start] = start_piece;
+	board[end] = end_piece;
+	
+	halfmove_clock = halfmove_clock_;
+	fullmove_clock = fullmove_clock_;
+	en_passant_square = en_passant_square_;
+	white_king_square = white_king_square_;
+	black_king_square = black_king_square_;
+	active_and_castling = active_and_castling_;
+}
+
 std::string BoardState::display() const {
 	return display_board(board);
 }
@@ -14,11 +27,13 @@ std::string BoardState::display() const {
 // just generates moves for a singular piece for sake of printing
 // should remove later
 std::vector<std::pair<uint8_t, char>>
-BoardState::generate(uint8_t start) const {
+BoardState::generate(uint8_t start, bool isWhite) const {
+	if (isWhite != check(WHITE_ACTIVE,active_and_castling)) {
+		return {};
+	}
 	
-	bool isWhite = check(WHITE_ACTIVE,active_and_castling);
 	std::vector<std::pair<uint8_t, char>> valid_moves;
-	for (const auto& [end, promotion] : generate_moves(start, board, en_passant_square, active_and_castling)) {
+	for (const auto& [end, promotion] : generate_piece_moves(start, board, en_passant_square, active_and_castling)) {
 		BoardState board_copy = *this;
 		
 		if (board[start] == 'K' || board[start] == 'k') {
@@ -46,16 +61,21 @@ BoardState::generate(uint8_t start) const {
 }
 
 int BoardState::num_psuedo_legal(uint8_t start) const {
-	return generate_moves(start, board, en_passant_square, active_and_castling).size();
+	return generate_piece_moves(start, board, en_passant_square, active_and_castling).size();
 }
 
+// should instead generate all possiible actaully valid moves
+// need a way to unmove nicely
+// need to revert all stats to what they were at before?
+// moves, halfmove
+
 // generates all possible board states
-std::vector<BoardState>
-BoardState::generate_boards() const {
+std::vector<std::pair<uint8_t, std::pair<uint8_t, char>>>
+BoardState::generate_moves() const {
 	
 	bool isWhite = check(WHITE_ACTIVE,active_and_castling);
 	auto candidate_moves = generate_all(isWhite, board, en_passant_square, active_and_castling);
-	std::vector<BoardState> possible_boards;
+	std::vector<std::pair<uint8_t, std::pair<uint8_t, char>>> possible_moves; 
 	
 	for (const auto& [start, ends] : candidate_moves) {
 		for (const auto& [end, promotion] : ends) {
@@ -73,17 +93,17 @@ BoardState::generate_boards() const {
 			
 			if (isWhite) {
 				if (!board_copy.in_check(board_copy.white_king_square, isWhite)) {
-					possible_boards.push_back(board_copy);
+					possible_moves.push_back({start, {end, promotion}});
 				}
 			} else {
 				if (!board_copy.in_check(board_copy.black_king_square, isWhite)) {
-					possible_boards.push_back(board_copy);
+					possible_moves.push_back({start, {end, promotion}});
 				}
 			}
 		}
 	}
 	
-	return possible_boards;
+	return possible_moves;
 }
 
 // checks if a space is in check

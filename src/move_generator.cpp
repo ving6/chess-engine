@@ -14,7 +14,7 @@ generate_all(bool white_active, const std::array<char,64>& board,
 		if (board[start] == '.') continue;
 		if (white_active != isupper(board[start])) continue;
 		
-		auto curr_moves = generate_moves(start, board, en_passant_square, active_and_castling);
+		auto curr_moves = generate_piece_moves(start, board, en_passant_square, active_and_castling);
 		if (!curr_moves.empty()) {
 			all_moves.push_back({start, curr_moves});
 		}
@@ -24,8 +24,8 @@ generate_all(bool white_active, const std::array<char,64>& board,
 }
 
 std::vector<std::pair<uint8_t, char>> 
-generate_moves(const uint8_t start, const std::array<char,64>& board, 
-									const uint8_t en_passant_square, const uint8_t active_and_castling) {
+generate_piece_moves(const uint8_t start, const std::array<char,64>& board, 
+						const uint8_t en_passant_square, const uint8_t active_and_castling) {
 	
 	bool isWhite = std::isupper(board[start]);
 	char piece = std::toupper(board[start]);

@@ -20,15 +20,18 @@ public:
 
 	void move(uint8_t start, uint8_t end, char promotion='\0');
 	
+	void unmove(uint8_t start, char start_piece, uint8_t end, char end_piece, uint16_t halfmove_clock_, uint16_t fullmove_clock_, 
+				uint8_t en_passant_square_, uint8_t white_king_square_, uint8_t black_king_square_, uint8_t active_and_castling_);
+	
 	std::string display() const;
 	
 	std::vector<std::pair<uint8_t, char>>
-	generate(uint8_t start) const;
+	generate(uint8_t start, bool isWhite) const;
 	
 	int num_psuedo_legal(uint8_t start) const;
 	
-	std::vector<BoardState>
-	generate_boards() const;
+	std::vector<std::pair<uint8_t, std::pair<uint8_t, char>>>
+	generate_moves() const;
 	
 	inline std::array<char,64> get_board() {return board;}
 	

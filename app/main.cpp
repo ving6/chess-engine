@@ -24,38 +24,59 @@ int main() {
 	std::cout << "(w)hite or (b)lack?: ";
 	std::cin >> color;
 	
+	std::cout << board_state.display() << std::endl;
+	
 	bool player_control = color == 'w';
 	for (;true; player_control=!player_control) {
 		
-		auto [evaluation, best_board] = analyzer.analyze(board_state);
+		auto [evaluation, best_move] = analyzer.analyze(board_state);
 		
-		if ((player_control && evaluation == chess::MATE_SCORE) || (!player_control && evaluation == -chess::MATE_SCORE)) {
-			std::cout << "checkmate: white wins!" << std::endl;
-			break;
-		}
-		
-		if ((player_control && evaluation == -chess::MATE_SCORE) || (!player_control && evaluation == chess::MATE_SCORE)) {
-			std::cout << "checkmate: black wins!" << std::endl;
-			break;
-		}
-		
-		if (evaluation == 0 && best_board == board_state) {
-			std::cout << "draw..." << std::endl;
+		if (best_move.first == 64) {
+			if (evaluation == 0) {
+				std::cout << "draw..." << std::endl;
+				
+			} else {
+				if (player_control) {
+					std::cout << "checkmate: computer wins!" << std::endl;
+					
+				} else {
+					std::cout << "checkmate: player wins!" << std::endl;
+				}
+			}
+			
 			break;
 		}
 		
 		std::cout << "evaluation: " << evaluation << std::endl;
 		
+		if (evaluation == 0 && best_move.first == 64) {
+			std::cout << "draw..." << std::endl;
+			break;
+		}
+		
+		//std::cout << "evaluation: " << evaluation << std::endl;
+		
 		if (player_control) {
 			
-			std::cout << "start: ";
-			std::cin >> file >> rank;
+			std::vector<std::pair<uint8_t, char>> moves;
 			
-			start = (rank - '1')*8 + (file - 'a');
+			while (true) {
+				std::cout << "start: ";
+				std::cin >> file >> rank;
+				
+				start = (rank - '1')*8 + (file - 'a');
+				
+				if (0 <= start && start < 64) {
+					moves = board_state.generate(start, (color=='w'));
+					if (moves.size()!=0) {
+						break;
+					}
+				}
+				
+				std::cout << "invalid start position" << std::endl;
+			}
 			
 			std::cout << "possible moves: ";
-			
-			auto moves = board_state.generate(start);
 			
 			bool promoting = false;
 			for (const auto& [move, promotion] : moves) {
@@ -68,26 +89,40 @@ int main() {
 			}
 			
 			
-			std::cout << "\nend: ";
-			std::cin >> file >> rank;
-			
-			end = (rank - '1')*8 + (file - 'a');
-			
-			char promotion;
-			if (promoting) {
-				std::cout << "promotion: ";
-				std::cin >> promotion;
-				board_state.move(start, end, promotion);
+			while (true) {
+				std::cout << "\nend: ";
+				std::cin >> file >> rank;
 				
-			} else {
-				board_state.move(start, end);
+				end = (rank - '1')*8 + (file - 'a');
+				
+				char promotion = '\0';
+				if (promoting) {
+					std::cout << "promotion: ";
+					std::cin >> promotion;
+				}
+				
+				bool valid = false;
+				for (const auto& [move, promotion] : moves) {
+					if (move == end) {
+						valid = true;
+						break;
+					}
+				}
+				
+				if (valid) {
+					board_state.move(start, end, promotion);
+					break;
+				}
+				
+				std::cout << "invalid end position";
 			}
 			
 		} else  {
 			
-			board_state = best_board;
+			board_state.move(best_move.first, best_move.second.first, best_move.second.second);
 		}
 		
+		std::cout << std::endl;
 		std::cout << board_state.display() << std::endl;
 	}
 }

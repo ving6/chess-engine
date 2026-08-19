@@ -3,12 +3,28 @@
 
 #include <algorithm>
 #include <climits>
+#include <unordered_map>
+
+#include <iostream>
 
 namespace chess {
 
-std::pair<int, BoardState>
+std::pair<int, MOVE>
 Analyzer::analyze(BoardState& board_state) {
-	return negamax(4, board_state, INT_MIN+1, INT_MAX);
+	nodes = 0;
+	
+	best_move = {64,{64,{'\0'}}};
+	
+	int final_score;
+	for (root_depth=1; root_depth<=5; root_depth++) {
+		final_score = negamax(root_depth, board_state, INT_MIN+1, INT_MAX);
+		previous_best_move = best_move;
+		std::cout << root_depth << ": " << nodes << ", ";
+	}
+	
+	std::cout << std::endl;
+	
+	return {final_score, best_move};
 }
 
 int Analyzer::evaluate(BoardState& board_state) {
@@ -25,16 +41,17 @@ int Analyzer::evaluate(BoardState& board_state) {
 	return white_to_move ? score : -score;
 }
 
-std::pair<int, BoardState>
-Analyzer::negamax(int depth, BoardState& board_state, int alpha, int beta) {
+int Analyzer::negamax(int depth, BoardState& board_state, int alpha, int beta) {
+	nodes++;
+	
 	// check for 50-move rule
 	if (board_state.get_halfmove() >= 100) {
-		return {0, board_state};
+		return 0;
 	}
 	
 	// check for checkmate and stalemate
-	auto next_boards = board_state.generate_boards();
-	if (next_boards.size() == 0) {
+	auto next_moves = board_state.generate_moves();
+	if (next_moves.size() == 0) {
 		auto info = board_state.get_info();
 		bool white_to_move = check(WHITE_ACTIVE, info);
 		uint8_t white_king_space = board_state.get_white_king();
@@ -42,32 +59,88 @@ Analyzer::negamax(int depth, BoardState& board_state, int alpha, int beta) {
 		
 		if (white_to_move) {
 			if (board_state.in_check(white_king_space, true)) {
-				return {-MATE_SCORE, board_state};
+				return -MATE_SCORE;
 			} else {
-				return {0, board_state};
+				return 0;
 			}
 			
 		} else {
 			if (board_state.in_check(black_king_space, false)) {
-				return {MATE_SCORE, board_state};
+				return -MATE_SCORE;
 			} else {
-				return {0, board_state};
+				return 0;
 			}
 		}
 	}
 	
 	if (depth == 0) {
-		return {evaluate(board_state), board_state};
+		return evaluate(board_state);
 	}
 	
-	BoardState max_board ;
+	auto board = board_state.get_board();
+	std::unordered_map<char, int> piece_value {
+		{'P', 10}, {'N', 32}, {'B', 33}, {'R', 50}, {'Q',90}, {'K',100},
+		{'p', 10}, {'n', 32}, {'b', 33}, {'r', 50}, {'q',90}, {'k',100},
+		{'.', 0}
+	};
+	
+	// move ordering
+	std::sort(next_moves.begin(), next_moves.end(), [&](
+		MOVE move_a, MOVE move_b){
+			auto& [start_a, snd_a] = move_a;
+			auto& [start_b, snd_b] = move_b;
+			
+			auto& [end_a, promotion_a] = snd_a;
+			auto& [end_b, promotion_b] = snd_b;
+			
+			// consider previous best move
+			// if (depth == root_depth)
+			if (true) {
+				auto& [prev_start, prev_snd] = previous_best_move;
+				auto& [prev_end, prev_prom] = prev_snd;
+				
+				if (start_a == prev_start && end_a == prev_end && promotion_a == prev_prom) {
+					return true;
+				}
+				
+				if (start_b == prev_start && end_b == prev_end && promotion_b == prev_prom) {
+					return false;
+				}
+			}
+			
+			// consider captures
+			int value_a = piece_value[board[end_a]] - piece_value[board[start_a]]/10;
+			int value_b = piece_value[board[end_b]] - piece_value[board[start_b]]/10;
+			
+			// consider promotions
+			if (promotion_a) value_a += 10*piece_value[promotion_a];
+			if (promotion_b) value_b += 10*piece_value[promotion_b];
+			
+			return value_a > value_b;
+	});
+	
+	uint16_t halfmove_clock		= board_state.get_halfmove();
+	uint16_t fullmove_clock		= board_state.get_fullmove();
+	uint8_t en_passant_square	= board_state.get_en_passant();
+	uint8_t white_king_square	= board_state.get_white_king();
+	uint8_t black_king_square	= board_state.get_black_king();
+	uint8_t active_and_castling = board_state.get_info();
+	
+	MOVE local_best_move;
 	int max_score = INT_MIN+1;
-	for (auto& board : next_boards) {
-		int score = -(negamax(depth-1, board, -beta, -alpha).first);
+	for (auto& [start, snd] : next_moves) {
+		auto& [end, promotion] = snd;
+		
+		board_state.move(start, end, promotion);
+		
+		int score = -negamax(depth-1, board_state, -beta, -alpha);
 		if (score > max_score) {
 			max_score = score;
-			max_board = board;
+			local_best_move = {start, {end, promotion}};
 		}
+		
+		board_state.unmove(start, board[start], end, board[end], halfmove_clock, fullmove_clock, 
+							en_passant_square, white_king_square, black_king_square, active_and_castling);
 		
 		alpha = std::max(alpha, score);
 		if (alpha >= beta) {
@@ -75,7 +148,8 @@ Analyzer::negamax(int depth, BoardState& board_state, int alpha, int beta) {
 		}
 	}
 	
-	return {max_score, max_board};
+	best_move = local_best_move;
+	return max_score;
 }
 
 int Analyzer::material_score(BoardState& board_state) {
@@ -163,8 +237,6 @@ int Analyzer::mobility_score(BoardState& board_state) {
 	for (uint8_t space=0; space<64; space++) {
 		char piece = board[space];
 		int mult = std::isupper(piece) ? 1 : -1;
-		
-		// ok, negat
 		piece = std::toupper(piece);
 		
 		if (piece == 'Q' || piece == 'R' || piece == 'B' || piece == 'N') {

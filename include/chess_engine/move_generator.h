@@ -13,7 +13,7 @@ generate_all(bool white_active, const std::array<char,64>& board,
 				const uint8_t en_passant_square, const uint8_t active_and_castling);
 
 std::vector<std::pair<uint8_t, char>>
-generate_moves(const uint8_t start, const std::array<char,64>& board, 
+generate_piece_moves(const uint8_t start, const std::array<char,64>& board, 
 				const uint8_t en_passant_square, const uint8_t active_and_castling);
 
 } // end namespace chess
