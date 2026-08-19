@@ -30,3 +30,9 @@ so that we can test various FEN string positions
 Finished a FEN loader. Working on analysis function. Currently considers material
 and, using piece square tables, positional value. Will need to consider mobility,
 pawn structure, and king safety at least.
+
+8-18-26
+
+Fixed some in check bugs and pawn scope bugs. Prettified the board with nice looking
+pieces. Added mobility analysis. Added negamax with alpha-beta pruning, allowing for
+actual play against the computer!

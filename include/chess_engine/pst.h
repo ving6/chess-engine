@@ -158,9 +158,5 @@ std::unordered_map<char,std::array<int, 64>> eg_tables{
 	{'Q', eg_queen_table},
 	{'K', eg_king_table}
 };
-
-std::array<std::unordered_map<char,std::array<int, 64>>, 2> pst_tables = {
-	mg_tables, eg_tables
-};
 	
 } // end namespace chess

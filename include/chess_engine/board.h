@@ -15,6 +15,8 @@ public:
 		load(FEN, board, halfmove_clock, fullmove_clock, en_passant_square, 
 				white_king_square, black_king_square, active_and_castling);
 	}
+	
+	bool operator==(const BoardState& other) const = default;
 
 	void move(uint8_t start, uint8_t end, char promotion='\0');
 	
@@ -22,6 +24,8 @@ public:
 	
 	std::vector<std::pair<uint8_t, char>>
 	generate(uint8_t start) const;
+	
+	int num_psuedo_legal(uint8_t start) const;
 	
 	std::vector<BoardState>
 	generate_boards() const;

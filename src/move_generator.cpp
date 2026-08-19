@@ -54,7 +54,7 @@ generate_moves(const uint8_t start, const std::array<char,64>& board,
 		
 		for (char& promotion : promotions) {
 			if (promotion && !isWhite) {
-				promotion = tolower(promotion);
+				promotion = std::tolower(promotion);
 			}
 			
 			if (empty(start+8*mult)) {
@@ -71,14 +71,14 @@ generate_moves(const uint8_t start, const std::array<char,64>& board,
 				}
 			}
 			
-			if (start % 8 > 0) {
+			if ((isWhite && start % 8 > 0) || (!isWhite && start % 8 < 7)) {
 				if ((!empty(start+7*mult) && takeable(start+7*mult)) || 
 						(en_passant_square == start+7*mult && en_passant_square != 0)) {
 					moves.push_back({start+7*mult,promotion});
 				}
 			}
 			
-			if (start % 8 < 7) {
+			if ((isWhite && start % 8 < 7) || (!isWhite && start % 8 > 0)) {
 				if ((!empty(start+9*mult) && takeable(start+9*mult)) || 
 						(en_passant_square == start+9*mult && en_passant_square != 0)) {
 					moves.push_back({start+9*mult,promotion});

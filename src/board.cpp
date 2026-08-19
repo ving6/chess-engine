@@ -1,7 +1,5 @@
 #include "chess_engine/board.h"
 
-#include <iostream>
-
 namespace chess {
 	
 void BoardState::move(uint8_t start, uint8_t end, char promotion) {
@@ -34,17 +32,21 @@ BoardState::generate(uint8_t start) const {
 		board_copy.move(start,end,promotion);
 		
 		if (isWhite) {
-			if (!board_copy.in_check(white_king_square, isWhite)) {
+			if (!board_copy.in_check(board_copy.white_king_square, isWhite)) {
 				valid_moves.push_back({end,promotion});
 			}
 		} else {
-			if (!board_copy.in_check(black_king_square, isWhite)) {
+			if (!board_copy.in_check(board_copy.black_king_square, isWhite)) {
 				valid_moves.push_back({end,promotion});
 			}
 		}
 	}
 	
 	return valid_moves;
+}
+
+int BoardState::num_psuedo_legal(uint8_t start) const {
+	return generate_moves(start, board, en_passant_square, active_and_castling).size();
 }
 
 // generates all possible board states
