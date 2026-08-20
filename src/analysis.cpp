@@ -85,7 +85,7 @@ int Analyzer::negamax(int depth, BoardState& board_state, int alpha, int beta) {
 			}
 				
 			if (entry.type == UPPER_BOUND) {
-				alpha = std::min(beta, entry.score);
+				beta = std::min(beta, entry.score);
 			}
 			
 			if (alpha >= beta) {
@@ -230,13 +230,13 @@ int Analyzer::negamax(int depth, BoardState& board_state, int alpha, int beta) {
 		new_type = UPPER_BOUND;
 		
 	} else if (max_score >= beta) {
-		new_type = UPPER_BOUND;
+		new_type = LOWER_BOUND;
 		
 	} else {
 		new_type = EXACT;
 	}
 	
-	if (!TT.contains(key) || TT[key].depth > depth) {
+	if (!TT.contains(key) || TT[key].depth <= depth) {
 		TT[key] = {depth, max_score, new_type, local_best_move};
 	}
 	
@@ -320,7 +320,7 @@ int Analyzer::piece_table_score(BoardState& board_state) {
 int Analyzer::mobility_score(BoardState& board_state) {
 	auto board = board_state.get_board();
 	
-	constexpr int mobility_weight = 4;
+	constexpr int mobility_weight = 3;
 	std::unordered_map<char,int> piece_mobility {
 		{'N',4}, {'B',4}, {'R',2}, {'Q',1}
 	};
