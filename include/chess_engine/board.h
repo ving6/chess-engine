@@ -21,8 +21,8 @@ public:
 
 	void move(uint8_t start, uint8_t end, char promotion='\0');
 	
-	void unmove(uint8_t start, char start_piece, uint8_t end, char end_piece, uint16_t halfmove_clock_, uint16_t fullmove_clock_, 
-				uint8_t en_passant_square_, uint8_t white_king_square_, uint8_t black_king_square_, uint8_t active_and_castling_);
+	void unmove(uint8_t& start, char& start_piece, uint8_t& end, char& end_piece, uint16_t& halfmove_clock_, uint16_t& fullmove_clock_, 
+				uint8_t& en_passant_square_, uint8_t& white_king_square_, uint8_t& black_king_square_, uint8_t& active_and_castling_);
 	
 	std::string display() const;
 	
@@ -31,8 +31,8 @@ public:
 	
 	int num_psuedo_legal(uint8_t start) const;
 	
-	std::vector<std::pair<uint8_t, std::pair<uint8_t, char>>>
-	generate_moves() const;
+	std::pair<std::vector<std::pair<uint8_t, std::pair<uint8_t, char>>>, int>
+	generate_moves();
 	
 	inline std::array<char,64> get_board() {return board;}
 	
@@ -64,6 +64,11 @@ private:
 	Zobrist Z;
 	uint64_t hash_key;
 	uint64_t hash() const;
+	
+	std::unordered_map<char,int> piece_mobility {
+		{'N',5}, {'B',4}, {'R',3}, {'Q',1}, {'P',0}, {'K',0},
+		{'n',-5}, {'b',-4}, {'r',-3}, {'q',-1}, {'p',0}, {'k',0}
+	};
 };
 
 } // end namespace chess

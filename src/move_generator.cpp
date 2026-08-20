@@ -6,13 +6,13 @@ namespace chess {
 	
 std::vector<std::pair<uint8_t, std::vector<std::pair<uint8_t, char>>>>
 generate_all(bool white_active, const std::array<char,64>& board, 
-				const uint8_t en_passant_square, const uint8_t active_and_castling) {
+				const uint8_t& en_passant_square, const uint8_t&active_and_castling) {
 	// in form: {{start1, {end1, end2, ...}}, {start2, {end1, end2, ...}}, ...
 	std::vector<std::pair<uint8_t, std::vector<std::pair<uint8_t, char>>>> all_moves;
 	
 	for (uint8_t start=0; start<64; start++) {
 		if (board[start] == '.') continue;
-		if (white_active != isupper(board[start])) continue;
+		if (white_active != std::isupper(board[start])) continue;
 		
 		auto curr_moves = generate_piece_moves(start, board, en_passant_square, active_and_castling);
 		if (!curr_moves.empty()) {
@@ -25,7 +25,7 @@ generate_all(bool white_active, const std::array<char,64>& board,
 
 std::vector<std::pair<uint8_t, char>> 
 generate_piece_moves(const uint8_t start, const std::array<char,64>& board, 
-						const uint8_t en_passant_square, const uint8_t active_and_castling) {
+						const uint8_t& en_passant_square, const uint8_t& active_and_castling) {
 	
 	bool isWhite = std::isupper(board[start]);
 	char piece = std::toupper(board[start]);

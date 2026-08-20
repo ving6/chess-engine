@@ -45,13 +45,13 @@ Analyzer::analyze(BoardState& board_state, int depth, bool print_stats) {
 	return {final_score, best_move};
 }
 
-int Analyzer::evaluate(BoardState& board_state) {
+int Analyzer::evaluate(BoardState& board_state, int mobility_score) {
 	
 	int score = 0;
 	
 	score += material_score(board_state);
 	score += piece_table_score(board_state);
-	score += mobility_score(board_state);
+	score += mobility_score;
 	
 	auto info = board_state.get_info();
 	bool white_to_move = check(WHITE_ACTIVE, info);
@@ -70,8 +70,11 @@ int Analyzer::negamax(int depth, BoardState& board_state, int alpha, int beta) {
 	// check Transposition Table
 	uint64_t key = board_state.get_hash();
 	TT_probes++;
+	
+	MOVE TT_move = {64, {64, '\0'}};
 	if (TT.contains(key)) {
 		auto& entry = TT[key];
+		TT_move = entry.best_move;
 		if (entry.depth >= depth) {
 			TT_hits++;
 			
@@ -100,7 +103,7 @@ int Analyzer::negamax(int depth, BoardState& board_state, int alpha, int beta) {
 	uint8_t white_king_square = board_state.get_white_king();
 	uint8_t black_king_square = board_state.get_black_king();
 	
-	auto next_moves = board_state.generate_moves();
+	auto [next_moves, mobility_score] = board_state.generate_moves();
 	if (next_moves.size() == 0) {
 		bool white_to_move = check(WHITE_ACTIVE, info);
 		
@@ -118,80 +121,94 @@ int Analyzer::negamax(int depth, BoardState& board_state, int alpha, int beta) {
 		return 0;
 	}
 	
-	// determine tactical value of a move
-	std::unordered_map<char, int> piece_value {
-		{'P', 10}, {'N', 32}, {'B', 33}, {'R', 50}, {'Q',90}, {'K',100},
-		{'p', 10}, {'n', 32}, {'b', 33}, {'r', 50}, {'q',90}, {'k',100},
-		{'.', 0}
-	};
-	
 	auto board 				  = board_state.get_board();
 	uint16_t halfmove_clock	  = board_state.get_halfmove();
 	uint16_t fullmove_clock	  = board_state.get_fullmove();
 	uint8_t en_passant_square = board_state.get_en_passant();
 	
-	auto tactical_value = [&](MOVE move){
+	// determine tactical value of a move
+	auto tactical_value = [&](MOVE& move){
 		auto& [start, snd] = move;
 		auto& [end, promotion] = snd;
 		
-		auto& [prev_start, prev_snd] = previous_best_move;
-		auto& [prev_end, prev_prom] = prev_snd;
-		
-		// consider previous best
-		if (start == prev_start && end == prev_end && promotion == prev_prom) {
+		// consider TT best stored for lower depths
+		if (move == TT_move) {
 			return INT_MAX;
 		}
 		
 		// consider captures
-		int value = piece_value[board[end]] - piece_value[board[start]]/10;
+		int value = piece_value[board[end]] - piece_value[board[start]]/100;
 		
 		// consider en passant
 		if (board[start] == 'P' || board[start] == 'p') {
 			if (end == en_passant_square) {
-				value = piece_value['P'] - piece_value['P']/10;
+				value = piece_value['P'] - piece_value['P']/100;
 			}
 		}
 		
 		// consider promotion
 		if (promotion) value += 10*piece_value[promotion];
 		
+		// consider killer moves if 
+		int ply = root_depth - depth;
+		if (move == killer_moves[ply][0]) {
+			value += 50;
+		} else if (move == killer_moves[ply][1]) {
+			value += 49;
+		}
+		
 		return value;
 	};
 	
 	// quiescence
 	if (depth <= -2) {
-		return evaluate(board_state);
+		return evaluate(board_state, mobility_score);
 		
 	} else if (depth <= 0) {
 		std::vector<MOVE> tactical_moves;
 		
+		// if promotion / capture
 		for (auto& move : next_moves) {
-			if (tactical_value(move) > 0) {
+			if (tactical_value(move) > 90) {
 				tactical_moves.push_back(move);
 			}
 		}
 		
 		if (tactical_moves.size() == 0) {
-			return evaluate(board_state);
+			return evaluate(board_state, mobility_score);
 		}
 		
-		//std::reverse(tactical_moves.begin(), tactical_moves.end());
 		next_moves = tactical_moves;
 	}
 	
 	// move ordering
-	std::sort(next_moves.begin(), next_moves.end(), [&](MOVE move_a, MOVE move_b){
-			return tactical_value(move_a) > tactical_value(move_b);
+	std::sort(next_moves.begin(), next_moves.end(), [&](MOVE& move_a, MOVE& move_b){
+		int tact_a = tactical_value(move_a);
+		int tact_b = tactical_value(move_b);
+		
+		if (tact_a > 0 || tact_b > 0) {
+			return tact_a > tact_b;
+		}
+		
+		auto& [start_a, snd_a] = move_a;
+		auto& [start_b, snd_b] = move_b;
+		
+		auto& [end_a, prom_a] = snd_a;
+		auto& [end_b, prom_b] = snd_b;
+		
+		return history[char_to_piece[board[start_a]]][end_a] >
+				history[char_to_piece[board[start_b]]][end_b];
 	});
 	
 	// main negamax loop
 	MOVE local_best_move;
 	int max_score = INT_MIN+1;
 	int original_alpha = alpha;
-	for (auto& [start, snd] : next_moves) {
+	for (auto& move : next_moves) {
+		auto& [start, snd] = move;
 		auto& [end, promotion] = snd;
 		
-		uint64_t original_hash = board_state.get_hash();
+		// make move
 		board_state.move(start, end, promotion);
 		
 		int score = -negamax(depth-1, board_state, -beta, -alpha);
@@ -200,27 +217,25 @@ int Analyzer::negamax(int depth, BoardState& board_state, int alpha, int beta) {
 			local_best_move = {start, {end, promotion}};
 		}
 		
+		// unmake move
 		board_state.unmove(start, board[start], end, board[end], halfmove_clock, fullmove_clock, 
 							en_passant_square, white_king_square, black_king_square, info);
 		
-		// check hash is actually working		
-		if (original_hash != board_state.get_hash()) {
-			std::cerr << "HASH MISMATCH\n";
-			std::cerr << "Move: " << +start << " -> " << +end << '\n';
-			std::cerr << "Original hash: " << original_hash << '\n';
-			std::cerr << "Current hash:  " << board_state.get_hash() << '\n';
-
-			for (int i = 0; i < 64; ++i) {
-				std::cerr << board_state.get_board()[i];
-				if (i % 8 == 7)
-					std::cerr << '\n';
-			}
-
-			std::abort();
-		}
-		
+		// alpha beta cutoff
 		alpha = std::max(alpha, score);
 		if (alpha >= beta) {
+			int ply = root_depth - depth;
+			if (board[end] == '.') {
+				if (killer_moves[ply][0] != move) {
+					killer_moves[ply][1] = killer_moves[ply][0];
+					killer_moves[ply][0] = move;
+				}
+				
+			} else {
+				if (depth > 0) {
+					history[char_to_piece[board[start]]][end] += depth * depth;
+				}
+			}
 			break;
 		}
 	}
@@ -315,29 +330,6 @@ int Analyzer::piece_table_score(BoardState& board_state) {
 	}
 	
 	return (mg_score*mg_phase + eg_score*eg_phase) / 24;
-}
-
-int Analyzer::mobility_score(BoardState& board_state) {
-	auto board = board_state.get_board();
-	
-	constexpr int mobility_weight = 3;
-	std::unordered_map<char,int> piece_mobility {
-		{'N',4}, {'B',4}, {'R',2}, {'Q',1}
-	};
-	
-	int mobility = 0;
-	for (uint8_t space=0; space<64; space++) {
-		char piece = board[space];
-		int mult = std::isupper(piece) ? 1 : -1;
-		piece = std::toupper(piece);
-		
-		if (piece == 'Q' || piece == 'R' || piece == 'B' || piece == 'N') {
-			int num_moves = board_state.num_psuedo_legal(space);
-			mobility += mult * piece_mobility[piece] * num_moves;
-		}
-	}
-	
-	return mobility_weight * mobility;
 }
 	
 } // end namespace chess

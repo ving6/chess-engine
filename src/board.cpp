@@ -8,8 +8,8 @@ void BoardState::move(uint8_t start, uint8_t end, char promotion) {
 				hash_key, Z);
 }
 
-void BoardState::unmove(uint8_t start, char start_piece, uint8_t end, char end_piece, uint16_t halfmove_clock_, uint16_t fullmove_clock_, 
-							uint8_t en_passant_square_, uint8_t white_king_square_, uint8_t black_king_square_, uint8_t active_and_castling_) {
+void BoardState::unmove(uint8_t& start, char& start_piece, uint8_t& end, char& end_piece, uint16_t& halfmove_clock_, uint16_t& fullmove_clock_, 
+							uint8_t& en_passant_square_, uint8_t& white_king_square_, uint8_t& black_king_square_, uint8_t& active_and_castling_) {
 									
 	// set start
 	hash_key ^= Z.pieces[char_to_piece[start_piece]][start];
@@ -162,24 +162,31 @@ int BoardState::num_psuedo_legal(uint8_t start) const {
 	return generate_piece_moves(start, board, en_passant_square, active_and_castling).size();
 }
 
-// should instead generate all possiible actaully valid moves
-// need a way to unmove nicely
-// need to revert all stats to what they were at before?
-// moves, halfmove
-
-// generates all possible board states
-std::vector<std::pair<uint8_t, std::pair<uint8_t, char>>>
-BoardState::generate_moves() const {
+// generates all moves
+std::pair<std::vector<std::pair<uint8_t, std::pair<uint8_t, char>>>, int>
+BoardState::generate_moves() {
 	
 	bool isWhite = check(WHITE_ACTIVE,active_and_castling);
 	auto candidate_moves = generate_all(isWhite, board, en_passant_square, active_and_castling);
-	std::vector<std::pair<uint8_t, std::pair<uint8_t, char>>> possible_moves; 
+	std::vector<std::pair<uint8_t, std::pair<uint8_t, char>>> possible_moves;
 	
-	for (const auto& [start, ends] : candidate_moves) {
-		for (const auto& [end, promotion] : ends) {
-			BoardState board_copy = *this;
+	uint16_t halfmove_clock_ 	 = halfmove_clock;
+	uint16_t fullmove_clock_ 	 = fullmove_clock; 
+	uint8_t en_passant_square_   = en_passant_square;
+	uint8_t white_king_square_   = white_king_square;
+	uint8_t black_king_square_   = black_king_square;
+	uint8_t active_and_castling_ = active_and_castling;
+	
+	int mobility_score = 0;
+	constexpr int mobility_weight = 1;
+	
+	for (auto& [start, ends] : candidate_moves) {
+		char start_piece = board[start];
+		mobility_score += piece_mobility[start_piece] * ends.size() * mobility_weight;
+		for (auto& [end, promotion] : ends) {
+			char end_piece 	 = board[end];
 			
-			if (board[start] == 'K' || board[start] == 'k') {
+			if (start_piece == 'K' || start_piece == 'k') {
 				if ((int)start - end == 2 || (int)end - start == 2) {
 					if (in_check(start, isWhite)) continue;
 					if (in_check((start+end)/2, isWhite)) continue;
@@ -187,21 +194,24 @@ BoardState::generate_moves() const {
 				}	
 			}
 			
-			board_copy.move(start,end,promotion);
+			move(start, end, promotion);
 			
 			if (isWhite) {
-				if (!board_copy.in_check(board_copy.white_king_square, isWhite)) {
+				if (!in_check(white_king_square, true)) {
 					possible_moves.push_back({start, {end, promotion}});
 				}
 			} else {
-				if (!board_copy.in_check(board_copy.black_king_square, isWhite)) {
+				if (!in_check(black_king_square, false)) {
 					possible_moves.push_back({start, {end, promotion}});
 				}
 			}
+			
+			unmove(start, start_piece, end, end_piece, halfmove_clock_, fullmove_clock_, en_passant_square_,
+					white_king_square_, black_king_square_, active_and_castling_);
 		}
 	}
 	
-	return possible_moves;
+	return {possible_moves, mobility_score};
 }
 
 // checks if a space is in check

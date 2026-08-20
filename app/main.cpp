@@ -4,7 +4,7 @@
 #include <iostream>
 
 int main() {
-	chess::BoardState board_state;
+	chess::BoardState board_state("1k6/1pn5/1p6/8/8/2P5/1PN5/1K6 w - - 0 1");
 	chess::Analyzer analyzer;
 	
 	char file; 

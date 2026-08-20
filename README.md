@@ -41,3 +41,12 @@ actual play against the computer!
 
 Added quissence search, move ordering, and transposition table. Also fixed some unmove
 related bugs.
+
+Also should make the board look a little prettier
+
+8-20-26
+
+Added killer moves and history heuristic as well as just did minor touchups to increase
+nodes/sec.
+
+Should start implementing pawn structure and king safety next.
