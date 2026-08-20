@@ -4,20 +4,118 @@ namespace chess {
 	
 void BoardState::move(uint8_t start, uint8_t end, char promotion) {
 	move_piece(start, end, board, halfmove_clock, fullmove_clock, en_passant_square, 
-				white_king_square, black_king_square, active_and_castling, promotion);
+				white_king_square, black_king_square, active_and_castling, promotion,
+				hash_key, Z);
 }
 
 void BoardState::unmove(uint8_t start, char start_piece, uint8_t end, char end_piece, uint16_t halfmove_clock_, uint16_t fullmove_clock_, 
 							uint8_t en_passant_square_, uint8_t white_king_square_, uint8_t black_king_square_, uint8_t active_and_castling_) {
+									
+	// set start
+	hash_key ^= Z.pieces[char_to_piece[start_piece]][start];
 	board[start] = start_piece;
+	
+	// clear end
+	hash_key ^= Z.pieces[char_to_piece[board[end]]][end];
+	
+	// set end if neccesary
+	if (end_piece != '.') {
+		hash_key ^= Z.pieces[char_to_piece[end_piece]][end];
+	}
 	board[end] = end_piece;
 	
 	halfmove_clock = halfmove_clock_;
 	fullmove_clock = fullmove_clock_;
+	
+	// reverse en passant correctly
+	if (end == en_passant_square_) {
+		if (start_piece == 'P') {
+			hash_key ^= Z.pieces[BLACK_PAWN][end-8];
+			board[end-8] = 'p';
+		}
+		
+		if (start_piece == 'p') {
+			hash_key ^= Z.pieces[WHITE_PAWN][end+8];
+			board[end+8] = 'P';
+		}
+	}
+	
+	// clear en passant if neccesary
+	if (en_passant_square != 0) {
+		hash_key ^= Z.en_passant[en_passant_square % 8];
+	}
+	
+	// set en passant if neccesary
+	if (en_passant_square_ != 0) {
+		hash_key ^= Z.en_passant[en_passant_square_ % 8];
+	}
+	
 	en_passant_square = en_passant_square_;
 	white_king_square = white_king_square_;
 	black_king_square = black_king_square_;
+	
+	// toggle castling rights if neccesary
+	if (check(WHITE_QUEENSIDE,active_and_castling) != check(WHITE_QUEENSIDE,active_and_castling_)) {
+		hash_key ^= Z.castling[WHITE_QUEENSIDE_Z];
+	}
+	
+	if (check(WHITE_KINGSIDE,active_and_castling) != check(WHITE_KINGSIDE,active_and_castling_)) {
+		hash_key ^= Z.castling[WHITE_KINGSIDE_Z];
+	}
+	
+	if (check(BLACK_QUEENSIDE,active_and_castling) != check(BLACK_QUEENSIDE,active_and_castling_)) {
+		hash_key ^= Z.castling[BLACK_QUEENSIDE_Z];
+	}
+	
+	if (check(BLACK_KINGSIDE,active_and_castling) != check(BLACK_KINGSIDE,active_and_castling_)) {
+		hash_key ^= Z.castling[BLACK_KINGSIDE_Z];
+	}
+	
 	active_and_castling = active_and_castling_;
+	
+	// if castling do more
+	if (start_piece == 'K') {
+		if (start == 4) {
+			if (end == 2) {
+				hash_key ^= Z.pieces[WHITE_ROOK][3];
+				hash_key ^= Z.pieces[WHITE_ROOK][0];
+				
+				board[3] = '.';
+				board[0] = 'R';
+			}
+			
+			if (end == 6) {
+				hash_key ^= Z.pieces[WHITE_ROOK][5];
+				hash_key ^= Z.pieces[WHITE_ROOK][7];
+				
+				board[5] = '.';
+				board[7] = 'R';
+			}
+		}
+	}
+	
+	if (start_piece == 'k') {
+		if (start == 60) {
+			if (end == 58) {
+				hash_key ^= Z.pieces[BLACK_ROOK][59];
+				hash_key ^= Z.pieces[BLACK_ROOK][56];
+				
+				board[59] = '.';
+				board[56] = 'r';
+			}
+			
+			if (end == 62) {
+				hash_key ^= Z.pieces[BLACK_ROOK][61];
+				hash_key ^= Z.pieces[BLACK_ROOK][63];
+				
+				board[61] = '.';
+				board[63] = 'r';
+			}
+		}
+	}
+	
+	// toggle active color
+	hash_key ^= Z.side_to_move;
 }
 
 std::string BoardState::display() const {
@@ -247,32 +345,26 @@ bool BoardState::in_check(uint8_t space, bool isWhite) const {
 	return false;
 }
 
-// so checkmate if the no possible moves AND
-// in check currently
-
-// stalemate if no possible moves BUT not in check
-// also 50 move rule
-// also inadequate material
-// also threefold
-// so the simulator would handle threefold
-// think about it. we also need an analysi function
-// but this takes in a Board
-// 
-
-// ok, we easily have all possible boards
-
-// the problem is how we actually analyze
-// and then we do alpha beta pruning...
-
-// analysis:
-
-// 
-
-// if we expose in_check. no we also need tke king stuff...????
-// how to make this function well????
-
-
-
-// could just have get functions to expose themselves
+// Zobrist hash function
+uint64_t BoardState::hash() const {
+	uint64_t key = 0;
+	
+	for (const auto& arr : Z.pieces) {
+			for (const auto& piece : arr) {
+				key ^= piece;
+			}
+		}
+		
+		for (const auto& file : Z.en_passant) {
+			key ^= file;
+		}
+		
+		for (const auto& right : Z.castling) {
+			key ^= right;
+		}
+		
+		key ^= Z.side_to_move;
+		return key;
+}
 
 } // end namespace chess

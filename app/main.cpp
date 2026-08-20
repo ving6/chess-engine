@@ -29,10 +29,10 @@ int main() {
 	bool player_control = color == 'w';
 	for (;true; player_control=!player_control) {
 		
-		auto [evaluation, best_move] = analyzer.analyze(board_state);
+		auto [eval, end_state] = analyzer.analyze(board_state);
 		
-		if (best_move.first == 64) {
-			if (evaluation == 0) {
+		if (end_state.first == 64) {
+			if (eval == 0) {
 				std::cout << "draw..." << std::endl;
 				
 			} else {
@@ -46,15 +46,6 @@ int main() {
 			
 			break;
 		}
-		
-		std::cout << "evaluation: " << evaluation << std::endl;
-		
-		if (evaluation == 0 && best_move.first == 64) {
-			std::cout << "draw..." << std::endl;
-			break;
-		}
-		
-		//std::cout << "evaluation: " << evaluation << std::endl;
 		
 		if (player_control) {
 			
@@ -119,6 +110,8 @@ int main() {
 			
 		} else  {
 			
+			auto [evaluation, best_move] = analyzer.analyze(board_state,5,true);
+			std::cout << "evaluation: " << evaluation << std::endl;
 			board_state.move(best_move.first, best_move.second.first, best_move.second.second);
 		}
 		

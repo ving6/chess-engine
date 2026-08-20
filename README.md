@@ -36,3 +36,8 @@ pawn structure, and king safety at least.
 Fixed some in check bugs and pawn scope bugs. Prettified the board with nice looking
 pieces. Added mobility analysis. Added negamax with alpha-beta pruning, allowing for
 actual play against the computer!
+
+8-20-26
+
+Added quissence search, move ordering, and transposition table. Also fixed some unmove
+related bugs.
