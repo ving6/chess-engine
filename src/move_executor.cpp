@@ -17,7 +17,7 @@ void move_piece(const uint8_t start, const uint8_t end, std::array<char,64>& boa
 		halfmove_clock++;
 	}
 	
-	if (end == en_passant_square) {
+	if (en_passant_square != 0 && end == en_passant_square) {
 		if (piece == 'p') {
 			hash_key ^= Z.pieces[WHITE_PAWN][en_passant_square+8];
 			board[en_passant_square+8] = '.';

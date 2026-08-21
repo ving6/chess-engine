@@ -50,3 +50,9 @@ Added killer moves and history heuristic as well as just did minor touchups to i
 nodes/sec.
 
 Should start implementing pawn structure and king safety next.
+
+8-20-26
+
+Fixed more move/unmove bugs. implemented pawn structure. Should focus on mkaing quiensce
+stuff actually work properly, it kind of sucks right now. Also, made it so that the
+computer can play against itself if neither w or b is inputted when prompted.

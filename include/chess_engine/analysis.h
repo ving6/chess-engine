@@ -26,9 +26,11 @@ public:
 	analyze(BoardState& board_state, int depth=1, bool print_stats=false);
 
 private:
-	int evaluate(BoardState& board_state, int mobility_score);
+	int evaluate(BoardState& board_state);
 	int material_score(BoardState& board_state);
 	int piece_table_score(BoardState& board_state);
+	int mobility_score(BoardState& board_state);
+	int pawn_structure_score(BoardState& board_state) const;	
 	
 	int negamax(int depth, BoardState& board_state, int alpha, int beta);
 	
@@ -52,9 +54,13 @@ private:
 		{'.', 0}
 	};
 	
-	std::array<std::array<MOVE, 2>, 7> killer_moves;
+	std::array<std::array<MOVE, 2>, 5> killer_moves;
 	
 	std::array<std::array<int, 64>, 12> history{};
+	
+	std::unordered_map<char,int> piece_mobility {
+		{'N',5}, {'B',4}, {'R',3}, {'Q',1}
+	};
 };
 	
 } // end namespace chess

@@ -14,7 +14,7 @@ namespace chess {
 
 std::pair<int, MOVE>
 Analyzer::analyze(BoardState& board_state, int depth, bool print_stats) {
-	best_move = {64,{64,{'\0'}}};
+	best_move = {64,{64,'\0'}};
 	
 	int final_score;
 	for (root_depth=1; root_depth<=depth; root_depth++) {
@@ -45,19 +45,26 @@ Analyzer::analyze(BoardState& board_state, int depth, bool print_stats) {
 	return {final_score, best_move};
 }
 
-int Analyzer::evaluate(BoardState& board_state, int mobility_score) {
+int Analyzer::evaluate(BoardState& board_state) {
 	
 	int score = 0;
 	
 	score += material_score(board_state);
 	score += piece_table_score(board_state);
-	score += mobility_score;
+	score += mobility_score(board_state);
+	score += pawn_structure_score(board_state);
 	
 	auto info = board_state.get_info();
 	bool white_to_move = check(WHITE_ACTIVE, info);
 	
 	return white_to_move ? score : -score;
 }
+
+/*
+int Analyzer::quiescence(BoardState& board_state, int alpha, int beta) {
+	
+}
+*/
 
 int Analyzer::negamax(int depth, BoardState& board_state, int alpha, int beta) {
 	nodes++;
@@ -102,19 +109,19 @@ int Analyzer::negamax(int depth, BoardState& board_state, int alpha, int beta) {
 	auto info = board_state.get_info();
 	uint8_t white_king_square = board_state.get_white_king();
 	uint8_t black_king_square = board_state.get_black_king();
-	
-	auto [next_moves, mobility_score] = board_state.generate_moves();
+	auto next_moves = board_state.generate_moves();
 	if (next_moves.size() == 0) {
 		bool white_to_move = check(WHITE_ACTIVE, info);
+		int ply = root_depth - depth;
 		
 		if (white_to_move) {
 			if (board_state.in_check(white_king_square, true)) {
-				return -MATE_SCORE;
+				return -MATE_SCORE + ply;
 			}
 			
 		} else {
 			if (board_state.in_check(black_king_square, false)) {
-				return -MATE_SCORE;
+				return -MATE_SCORE + ply;
 			}
 		}
 		
@@ -131,11 +138,6 @@ int Analyzer::negamax(int depth, BoardState& board_state, int alpha, int beta) {
 		auto& [start, snd] = move;
 		auto& [end, promotion] = snd;
 		
-		// consider TT best stored for lower depths
-		if (move == TT_move) {
-			return INT_MAX;
-		}
-		
 		// consider captures
 		int value = piece_value[board[end]] - piece_value[board[start]]/100;
 		
@@ -149,33 +151,22 @@ int Analyzer::negamax(int depth, BoardState& board_state, int alpha, int beta) {
 		// consider promotion
 		if (promotion) value += 10*piece_value[promotion];
 		
-		// consider killer moves if 
-		int ply = root_depth - depth;
-		if (move == killer_moves[ply][0]) {
-			value += 50;
-		} else if (move == killer_moves[ply][1]) {
-			value += 49;
-		}
-		
 		return value;
 	};
 	
 	// quiescence
-	if (depth <= -2) {
-		return evaluate(board_state, mobility_score);
-		
-	} else if (depth <= 0) {
+	if (depth <= 0) {
 		std::vector<MOVE> tactical_moves;
 		
 		// if promotion / capture
 		for (auto& move : next_moves) {
-			if (tactical_value(move) > 90) {
+			if (tactical_value(move) > 0) {
 				tactical_moves.push_back(move);
 			}
 		}
 		
 		if (tactical_moves.size() == 0) {
-			return evaluate(board_state, mobility_score);
+			return evaluate(board_state);
 		}
 		
 		next_moves = tactical_moves;
@@ -183,13 +174,34 @@ int Analyzer::negamax(int depth, BoardState& board_state, int alpha, int beta) {
 	
 	// move ordering
 	std::sort(next_moves.begin(), next_moves.end(), [&](MOVE& move_a, MOVE& move_b){
+		// consider TT best stored for lower depths
+		if (move_a == TT_move) {
+			return true;
+		}
+		
+		if (move_b == TT_move) {
+			return false;
+		}
+		
+		
 		int tact_a = tactical_value(move_a);
 		int tact_b = tactical_value(move_b);
 		
+		// if one or more tactical, compare value
 		if (tact_a > 0 || tact_b > 0) {
 			return tact_a > tact_b;
 		}
 		
+		// consider killer moves
+		int ply = root_depth - depth;
+		if (ply < 5) {
+			if (move_a == killer_moves[ply][0]) return true;
+			if (move_b == killer_moves[ply][0]) return false;
+			if (move_a == killer_moves[ply][1]) return true;
+			if (move_b == killer_moves[ply][1]) return false;
+		}
+		
+		// compare history
 		auto& [start_a, snd_a] = move_a;
 		auto& [start_b, snd_b] = move_b;
 		
@@ -201,9 +213,10 @@ int Analyzer::negamax(int depth, BoardState& board_state, int alpha, int beta) {
 	});
 	
 	// main negamax loop
-	MOVE local_best_move;
+	MOVE local_best_move = {64,{64,'\0'}};
 	int max_score = INT_MIN+1;
 	int original_alpha = alpha;
+	int original_beta = beta;
 	for (auto& move : next_moves) {
 		auto& [start, snd] = move;
 		auto& [end, promotion] = snd;
@@ -226,7 +239,7 @@ int Analyzer::negamax(int depth, BoardState& board_state, int alpha, int beta) {
 		if (alpha >= beta) {
 			int ply = root_depth - depth;
 			if (board[end] == '.') {
-				if (killer_moves[ply][0] != move) {
+				if (ply < 5 && killer_moves[ply][0] != move) {
 					killer_moves[ply][1] = killer_moves[ply][0];
 					killer_moves[ply][0] = move;
 				}
@@ -244,7 +257,7 @@ int Analyzer::negamax(int depth, BoardState& board_state, int alpha, int beta) {
 	if (max_score <= original_alpha) {
 		new_type = UPPER_BOUND;
 		
-	} else if (max_score >= beta) {
+	} else if (max_score >= original_beta) {
 		new_type = LOWER_BOUND;
 		
 	} else {
@@ -330,6 +343,72 @@ int Analyzer::piece_table_score(BoardState& board_state) {
 	}
 	
 	return (mg_score*mg_phase + eg_score*eg_phase) / 24;
+}
+
+// mobility score
+int Analyzer::mobility_score(BoardState& board_state) {
+	auto board = board_state.get_board();
+
+	constexpr int mobility_weight = 1;
+	std::unordered_map<char,int> piece_mobility {
+		{'N',4}, {'B',4}, {'R',2}, {'Q',1}
+	};
+
+	int mobility = 0;
+	for (uint8_t space=0; space<64; space++) {
+		char piece = board[space];
+		int mult = std::isupper(piece) ? 1 : -1;
+		piece = std::toupper(piece);
+
+		if (piece == 'Q' || piece == 'R' || piece == 'B' || piece == 'N') {
+			int num_moves = board_state.num_psuedo_legal(space);
+			mobility += mult * piece_mobility[piece] * num_moves;
+		}
+	}
+
+	return mobility_weight * mobility;
+}
+
+// pawn strcuture score
+int Analyzer::pawn_structure_score(BoardState& board_state) const {
+	auto board = board_state.get_board();
+	std::array<std::array<int, 8>, 2> pawns{};
+	
+	for (uint8_t space=0; space<64; space++) {
+		char piece = board[space];
+		if (piece == 'P') {
+			pawns[0][space % 8]++;
+		}
+		
+		if (piece == 'p') {
+			pawns[1][space % 8]++;
+		}
+	}
+	
+	int score = 0;
+	for (int i=0; i<8; i++) {
+		for (int color=0; color<=1; color++) {
+			if (pawns[color][i] == 0) continue;
+			int mult = (color==0) ? 1 : -1;
+			
+			// double pawn penalty
+			if (pawns[color][i] > 1) {
+				score -= mult * 8 * pawns[color][i];
+			}
+			
+			// isolated pawn penalty
+			if ((i==0 || pawns[color][i-1]==0) && (i==7 || pawns[color][i+1]==0)) {
+				score -= mult * 10;
+			}
+			
+			// passed pawn bonus
+			if ((i==0 || pawns[(color+1)%2][i-1]==0) && (i==7 || pawns[(color+1)%2][i+1]==0) && pawns[(color+1)%2][i]==0) {
+				score += mult * 20;
+			}
+		}
+	}
+	
+	return score;
 }
 	
 } // end namespace chess

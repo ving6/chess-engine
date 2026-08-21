@@ -1,5 +1,7 @@
 #include "chess_engine/board.h"
 
+#include <cassert>
+
 namespace chess {
 	
 void BoardState::move(uint8_t start, uint8_t end, char promotion) {
@@ -10,7 +12,6 @@ void BoardState::move(uint8_t start, uint8_t end, char promotion) {
 
 void BoardState::unmove(uint8_t& start, char& start_piece, uint8_t& end, char& end_piece, uint16_t& halfmove_clock_, uint16_t& fullmove_clock_, 
 							uint8_t& en_passant_square_, uint8_t& white_king_square_, uint8_t& black_king_square_, uint8_t& active_and_castling_) {
-									
 	// set start
 	hash_key ^= Z.pieces[char_to_piece[start_piece]][start];
 	board[start] = start_piece;
@@ -28,7 +29,7 @@ void BoardState::unmove(uint8_t& start, char& start_piece, uint8_t& end, char& e
 	fullmove_clock = fullmove_clock_;
 	
 	// reverse en passant correctly
-	if (end == en_passant_square_) {
+	if (en_passant_square_ != 0 && end == en_passant_square_) {
 		if (start_piece == 'P') {
 			hash_key ^= Z.pieces[BLACK_PAWN][end-8];
 			board[end-8] = 'p';
@@ -163,7 +164,7 @@ int BoardState::num_psuedo_legal(uint8_t start) const {
 }
 
 // generates all moves
-std::pair<std::vector<std::pair<uint8_t, std::pair<uint8_t, char>>>, int>
+std::vector<std::pair<uint8_t, std::pair<uint8_t, char>>>
 BoardState::generate_moves() {
 	
 	bool isWhite = check(WHITE_ACTIVE,active_and_castling);
@@ -177,14 +178,10 @@ BoardState::generate_moves() {
 	uint8_t black_king_square_   = black_king_square;
 	uint8_t active_and_castling_ = active_and_castling;
 	
-	int mobility_score = 0;
-	constexpr int mobility_weight = 1;
-	
-	for (auto& [start, ends] : candidate_moves) {
+	for (auto [start, ends] : candidate_moves) {
 		char start_piece = board[start];
-		mobility_score += piece_mobility[start_piece] * ends.size() * mobility_weight;
-		for (auto& [end, promotion] : ends) {
-			char end_piece 	 = board[end];
+		for (auto [end, promotion] : ends) {
+			char end_piece = board[end];
 			
 			if (start_piece == 'K' || start_piece == 'k') {
 				if ((int)start - end == 2 || (int)end - start == 2) {
@@ -193,6 +190,8 @@ BoardState::generate_moves() {
 					if (in_check(end, isWhite)) continue;
 				}	
 			}
+			
+			auto original_board = board;
 			
 			move(start, end, promotion);
 			
@@ -208,10 +207,29 @@ BoardState::generate_moves() {
 			
 			unmove(start, start_piece, end, end_piece, halfmove_clock_, fullmove_clock_, en_passant_square_,
 					white_king_square_, black_king_square_, active_and_castling_);
+					
+			
+			if (board != original_board) {
+				std::cerr << "GENERATE_MOVE UNMOVE FAILED\n";
+				std::cerr << "Move: " << +start << " -> " << +end << '\n';
+				std::cerr << "Start piece: '" << start_piece << "'\n";
+				std::cerr << "End piece: '" << end_piece << "'\n";
+				std::cerr << "Promotion: '" << promotion << "'\n";
+
+				for (int i = 0; i < 64; ++i) {
+					if (original_board[i] != board[i]) {
+						std::cerr << "Square " << i << ": '"
+								  << original_board[i] << "' -> '"
+								  << board[i] << "'\n";
+					}
+				}
+
+				std::abort();
+			}
 		}
 	}
 	
-	return {possible_moves, mobility_score};
+	return possible_moves;
 }
 
 // checks if a space is in check
