@@ -60,11 +60,134 @@ int Analyzer::evaluate(BoardState& board_state) {
 	return white_to_move ? score : -score;
 }
 
-/*
-int Analyzer::quiescence(BoardState& board_state, int alpha, int beta) {
+// determine tactical value of a move
+int Analyzer::tactical_value(const MOVE& move, const std::array<char,64>& board, uint8_t en_passant_square) {
+	auto& [start, snd] = move;
+	auto& [end, promotion] = snd;
 	
+	// consider captures
+	int value = piece_value[board[end]] - piece_value[board[start]]/100;
+	
+	// consider en passant
+	if (board[start] == 'P' || board[start] == 'p') {
+		if (end == en_passant_square) {
+			value = piece_value['P'] - piece_value['P']/100;
+		}
+	}
+	
+	// consider promotion
+	if (promotion) value += 10*piece_value[promotion];
+	
+	return value;
+};
+
+// move ordering
+void Analyzer::order_moves(std::vector<MOVE>& moves, const std::array<char,64>& board, const MOVE& TT_move, 
+							uint8_t en_passant_square, int depth) {
+	std::sort(moves.begin(), moves.end(), [&](const MOVE& move_a, const MOVE& move_b){
+		// consider TT best stored for lower depths
+		if (move_a == TT_move) return true;
+		if (move_b == TT_move) return false;
+		
+		int tact_a = tactical_value(move_a, board, en_passant_square);
+		int tact_b = tactical_value(move_b, board, en_passant_square);
+		
+		// if one or more tactical, compare value
+		if (tact_a > 0 || tact_b > 0) {
+			return tact_a > tact_b;
+		}
+		
+		// consider killer moves
+		int ply = root_depth - depth;
+		if (ply < 5) {
+			if (move_a == killer_moves[ply][0]) return true;
+			if (move_b == killer_moves[ply][0]) return false;
+			if (move_a == killer_moves[ply][1]) return true;
+			if (move_b == killer_moves[ply][1]) return false;
+		}
+		
+		// compare history
+		auto& [start_a, snd_a] = move_a;
+		auto& [start_b, snd_b] = move_b;
+		
+		auto& [end_a, prom_a] = snd_a;
+		auto& [end_b, prom_b] = snd_b;
+		
+		return history[char_to_piece[board[start_a]]][end_a] >
+				history[char_to_piece[board[start_b]]][end_b];
+	});
 }
-*/
+
+
+int Analyzer::quiescence(int depth, BoardState& board_state, int alpha, int beta,
+							std::array<char,64>& board, std::vector<MOVE>& next_moves, MOVE& TT_move) {
+
+	uint8_t info 			  = board_state.get_info();
+	uint16_t halfmove_clock	  = board_state.get_halfmove();
+	uint16_t fullmove_clock	  = board_state.get_fullmove();
+	uint8_t white_king_square = board_state.get_white_king();
+	uint8_t black_king_square = board_state.get_black_king();
+	uint8_t en_passant_square = board_state.get_en_passant();
+	
+	bool board_in_check;
+	if (check(WHITE_ACTIVE,info)) {
+		board_in_check = board_state.in_check(white_king_square, true);
+	} else {
+		board_in_check = board_state.in_check(black_king_square, false);
+	}
+	
+	
+	std::vector<MOVE> tactical_moves;
+	if (board_in_check) {
+		// survival moves
+		tactical_moves = next_moves;
+		
+	} else {
+		// stand pat pruning
+		int stand_pat = evaluate(board_state);
+		if (stand_pat >= beta) {
+			return beta;
+		}
+		
+		alpha = std::max(alpha, stand_pat);
+		
+		// if promotion / capture
+		for (auto& move : next_moves) {
+			if (tactical_value(move, board, en_passant_square) > 0) {
+				tactical_moves.push_back(move);
+			}
+		}
+	}
+	
+	order_moves(tactical_moves, board, TT_move, en_passant_square, depth);
+	
+	int max_score = INT_MIN+1;
+	for (auto& move : tactical_moves) {
+		auto& [start, snd] = move;
+		auto& [end, promotion] = snd;
+		
+		// make move
+		board_state.move(start, end, promotion);
+		
+		int score = -negamax(depth-1, board_state, -beta, -alpha);
+		if (score > max_score) {
+			max_score = score;
+		}
+		
+		// unmake move
+		board_state.unmove(start, board[start], end, board[end], halfmove_clock, fullmove_clock, 
+							en_passant_square, white_king_square, black_king_square, info);
+		
+		// alpha beta cutoff
+		alpha = std::max(alpha, score);
+		if (alpha >= beta) {
+			break;
+		}
+	}
+	
+	return alpha;
+}
+
 
 int Analyzer::negamax(int depth, BoardState& board_state, int alpha, int beta) {
 	nodes++;
@@ -76,13 +199,13 @@ int Analyzer::negamax(int depth, BoardState& board_state, int alpha, int beta) {
 	
 	// check Transposition Table
 	uint64_t key = board_state.get_hash();
-	TT_probes++;
+	if (depth > 0) TT_probes++;
 	
 	MOVE TT_move = {64, {64, '\0'}};
 	if (TT.contains(key)) {
 		auto& entry = TT[key];
 		TT_move = entry.best_move;
-		if (entry.depth >= depth) {
+		if (depth > 0 && entry.depth >= depth) {
 			TT_hits++;
 			
 			if (entry.type == EXACT) {
@@ -133,84 +256,13 @@ int Analyzer::negamax(int depth, BoardState& board_state, int alpha, int beta) {
 	uint16_t fullmove_clock	  = board_state.get_fullmove();
 	uint8_t en_passant_square = board_state.get_en_passant();
 	
-	// determine tactical value of a move
-	auto tactical_value = [&](MOVE& move){
-		auto& [start, snd] = move;
-		auto& [end, promotion] = snd;
-		
-		// consider captures
-		int value = piece_value[board[end]] - piece_value[board[start]]/100;
-		
-		// consider en passant
-		if (board[start] == 'P' || board[start] == 'p') {
-			if (end == en_passant_square) {
-				value = piece_value['P'] - piece_value['P']/100;
-			}
-		}
-		
-		// consider promotion
-		if (promotion) value += 10*piece_value[promotion];
-		
-		return value;
-	};
-	
 	// quiescence
 	if (depth <= 0) {
-		std::vector<MOVE> tactical_moves;
-		
-		// if promotion / capture
-		for (auto& move : next_moves) {
-			if (tactical_value(move) > 0) {
-				tactical_moves.push_back(move);
-			}
-		}
-		
-		if (tactical_moves.size() == 0) {
-			return evaluate(board_state);
-		}
-		
-		next_moves = tactical_moves;
+		return quiescence(depth, board_state, alpha, beta, board, next_moves, TT_move);
 	}
 	
 	// move ordering
-	std::sort(next_moves.begin(), next_moves.end(), [&](MOVE& move_a, MOVE& move_b){
-		// consider TT best stored for lower depths
-		if (move_a == TT_move) {
-			return true;
-		}
-		
-		if (move_b == TT_move) {
-			return false;
-		}
-		
-		
-		int tact_a = tactical_value(move_a);
-		int tact_b = tactical_value(move_b);
-		
-		// if one or more tactical, compare value
-		if (tact_a > 0 || tact_b > 0) {
-			return tact_a > tact_b;
-		}
-		
-		// consider killer moves
-		int ply = root_depth - depth;
-		if (ply < 5) {
-			if (move_a == killer_moves[ply][0]) return true;
-			if (move_b == killer_moves[ply][0]) return false;
-			if (move_a == killer_moves[ply][1]) return true;
-			if (move_b == killer_moves[ply][1]) return false;
-		}
-		
-		// compare history
-		auto& [start_a, snd_a] = move_a;
-		auto& [start_b, snd_b] = move_b;
-		
-		auto& [end_a, prom_a] = snd_a;
-		auto& [end_b, prom_b] = snd_b;
-		
-		return history[char_to_piece[board[start_a]]][end_a] >
-				history[char_to_piece[board[start_b]]][end_b];
-	});
+	order_moves(next_moves, board, TT_move, en_passant_square, depth);
 	
 	// main negamax loop
 	MOVE local_best_move = {64,{64,'\0'}};
@@ -253,6 +305,7 @@ int Analyzer::negamax(int depth, BoardState& board_state, int alpha, int beta) {
 		}
 	}
 	
+	// update Transposition Table
 	TYPE new_type;
 	if (max_score <= original_alpha) {
 		new_type = UPPER_BOUND;

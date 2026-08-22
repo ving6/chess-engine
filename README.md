@@ -56,3 +56,9 @@ Should start implementing pawn structure and king safety next.
 Fixed more move/unmove bugs. implemented pawn structure. Should focus on mkaing quiensce
 stuff actually work properly, it kind of sucks right now. Also, made it so that the
 computer can play against itself if neither w or b is inputted when prompted.
+
+8-21-26
+
+Fixed up quiescence logic. didnt have correct stand pat logic, so wasnt pruning
+properly. With this, the bot thinks very fast even without any set max q-depth.
+Now plays very fast. Need to check the real level of the engine.

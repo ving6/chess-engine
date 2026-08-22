@@ -27,11 +27,16 @@ public:
 
 private:
 	int evaluate(BoardState& board_state);
+	int tactical_value(const MOVE& move, const std::array<char,64>& board, uint8_t en_passant_square);
+	void order_moves(std::vector<MOVE>& moves, const std::array<char,64>& board, const MOVE& TT_move, uint8_t en_passant_square, int depth);
+	
 	int material_score(BoardState& board_state);
 	int piece_table_score(BoardState& board_state);
 	int mobility_score(BoardState& board_state);
 	int pawn_structure_score(BoardState& board_state) const;	
 	
+	int quiescence(int depth, BoardState& board_state, int alpha, int beta,
+					std::array<char,64>& board, std::vector<MOVE>& next_moves, MOVE& TT_move);
 	int negamax(int depth, BoardState& board_state, int alpha, int beta);
 	
 	int nodes;

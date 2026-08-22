@@ -4,7 +4,7 @@
 #include <iostream>
 
 int main() {
-	chess::BoardState board_state;
+	chess::BoardState board_state{"rnbqkbnr/pppppppp/8/8/8/8/1PPPPPPP/RNBQKBNR b KQkq - 0 1"};
 	
 	char file; 
 	char rank;
@@ -28,6 +28,11 @@ int main() {
 	bool player_control = color == 'w';
 	bool bot_play = (color != 'w' && color != 'b');
 	
+	// if position has black starting, invert player control logic
+	if (!chess::check(chess::WHITE_ACTIVE, board_state.get_info())) {
+		player_control = !player_control;
+	}
+	
 	chess::Analyzer analyzer;
 	chess::Analyzer analyzer_2;
 	chess::Analyzer endstate_analyzer;
@@ -41,7 +46,6 @@ int main() {
 			std::cout << "draw: threefold repetition..." << std::endl;
 			break;
 		}
-		
 		
 		if (bot_play) {
 			player_control = false;
@@ -59,22 +63,11 @@ int main() {
 				}
 				
 			} else {
-				if (bot_play) {
-					if (active_bot) {
-						std::cout << "checkmate: computer 2 wins!" << std::endl;
-						
-					} else {
-						std::cout << "checkmate: computer 1 wins!" << std::endl;
-					}
-					
+				// if white active
+				if (chess::check(chess::WHITE_ACTIVE, board_state.get_info())) {
+					std::cout << "checkmate: black wins!" << std::endl;
 				} else {
-				
-					if (player_control) {
-						std::cout << "checkmate: computer wins!" << std::endl;
-						
-					} else {
-						std::cout << "checkmate: player wins!" << std::endl;
-					}
+					std::cout << "checkmate: white wins!" << std::endl;
 				}
 			}
 			
@@ -145,13 +138,13 @@ int main() {
 		} else  {
 			
 			if (active_bot) {
-				auto [evaluation, best_move] = analyzer.analyze(board_state,5,true);
-				std::cout << "evaluation1: " << evaluation << std::endl;
+				auto [evaluation, best_move] = analyzer.analyze(board_state,5,false);
+				std::cout << "evaluation 1: " << evaluation << std::endl;
 				board_state.move(best_move.first, best_move.second.first, best_move.second.second);
 				
 			} else {
-				auto [evaluation, best_move] = analyzer_2.analyze(board_state,5,true);
-				std::cout << "evaluation2: " << evaluation << std::endl;
+				auto [evaluation, best_move] = analyzer_2.analyze(board_state,5,false);
+				std::cout << "evaluation 2: " << evaluation << std::endl;
 				board_state.move(best_move.first, best_move.second.first, best_move.second.second);
 			}
 		}
@@ -160,7 +153,7 @@ int main() {
 			active_bot = !active_bot;
 		}
 		
-		std::cout << std::endl;
+		std::cout << "move: " << board_state.get_fullmove()-1 << std::endl;
 		std::cout << board_state.display() << std::endl;
 	}
 }
